@@ -80,7 +80,9 @@ def test_mixed_state_tasks_render_expected_symbols() -> None:
     async def scenario() -> None:
         app = RookApp(today_provider=_fixed_today, tasks=tasks)
         async with app.run_test() as pilot:
-            rendered = "\n".join(str(row.content) for row in pilot.app.query(TaskRow))
+            rendered = "\n".join(
+                str(row.query_one(Static).content) for row in pilot.app.query(TaskRow)
+            )
 
             assert "• Open task" in rendered
             assert "> Migrated task" in rendered

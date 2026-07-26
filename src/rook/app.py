@@ -34,8 +34,8 @@ SAMPLE_TASKS: list[Task] = [
 class RookApp(App[None]):
     """The Rook terminal shell.
 
-    Phase 2 renders a hardcoded Today task list. There is no selection,
-    mutation, or persistence yet.
+    Phase 4 adds in-memory Task creation and editing. There is still no
+    database; Tasks live only in the running process.
     """
 
     CSS = """
@@ -43,7 +43,7 @@ class RookApp(App[None]):
         layout: vertical;
     }
 
-    #header, #mascot-quote, #spacer {
+    #header, #mascot-quote, #spacer, #status {
         height: 1;
     }
 
@@ -61,6 +61,8 @@ class RookApp(App[None]):
         Binding("q", "quit", "Quit"),
         Binding("up", "cursor_up", "Up", show=False),
         Binding("down", "cursor_down", "Down", show=False),
+        Binding("n", "new_task", "New", show=False),
+        Binding("e", "edit_task", "Edit", show=False),
     ]
 
     def __init__(
@@ -88,6 +90,7 @@ class RookApp(App[None]):
         yield Static(mascot_quote_text, id="mascot-quote", markup=False)
         yield Static("", id="spacer")
         yield TaskListView(self._tasks, safe_symbols=self._safe_symbols, id="task-list")
+        yield Static("", id="status", markup=False)
         yield ShortcutFooter(has_tasks=bool(self._tasks), id="footer")
 
     def action_cursor_up(self) -> None:
@@ -95,3 +98,16 @@ class RookApp(App[None]):
 
     def action_cursor_down(self) -> None:
         self.query_one(TaskListView).select_next()
+
+    async def action_new_task(self) -> None:
+        await self.query_one(TaskListView).begin_create()
+
+    async def action_edit_task(self) -> None:
+        await self.query_one(TaskListView).begin_edit()
+
+    def on_task_list_view_status_message(self, message: TaskListView.StatusMessage) -> None:
+        self.query_one("#status", Static).update(message.text)
+
+    def on_task_list_view_editing_changed(self, message: TaskListView.EditingChanged) -> None:
+        self.query_one(ShortcutFooter).set_editing(message.editing)
+        self.query_one("#status", Static).update("")

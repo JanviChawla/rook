@@ -32,6 +32,10 @@ TODAY_EMPTY_FOOTER = FooterVariant(
     compact="n  r  a  ?  q",
 )
 
+# Section 10.7: while creating or editing a Task inline, the footer shows
+# only the controls that apply to text entry.
+EDITING_FOOTER_TEXT = "[Enter] save   [Esc] cancel"
+
 
 def select_footer_text(variant: FooterVariant, width: int) -> str:
     """The widest footer tier that fits without wrapping."""
@@ -49,6 +53,7 @@ class ShortcutFooter(Static):
         # markup tags, so brackets like "[n]" must not be parsed as styling.
         super().__init__(id=id, markup=False)
         self._has_tasks = has_tasks
+        self._editing = False
 
     def on_mount(self) -> None:
         self._refresh_content()
@@ -56,7 +61,14 @@ class ShortcutFooter(Static):
     def on_resize(self, event: events.Resize) -> None:
         self._refresh_content()
 
+    def set_editing(self, editing: bool) -> None:
+        self._editing = editing
+        self._refresh_content()
+
     def _refresh_content(self) -> None:
+        if self._editing:
+            self.update(EDITING_FOOTER_TEXT)
+            return
         variant = TODAY_FOOTER if self._has_tasks else TODAY_EMPTY_FOOTER
         width = self.size.width or 80
         self.update(select_footer_text(variant, width))

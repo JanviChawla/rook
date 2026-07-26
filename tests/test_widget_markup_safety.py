@@ -4,8 +4,12 @@ footer's "[n] new" style hints were silently corrupted until markup was
 explicitly disabled for these widgets.
 """
 
-from rich.console import Console
+import asyncio
 
+from rich.console import Console
+from textual.widgets import Static
+
+from rook.app import RookApp
 from rook.domain.tasks import Task, TaskState
 from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_row import TaskRow
@@ -27,7 +31,15 @@ def test_shortcut_footer_does_not_parse_bracketed_hints_as_markup() -> None:
     assert "[q] quit" in rendered
 
 
-def test_task_row_disables_markup_parsing() -> None:
-    task = Task(id=1, text="Buy groceries", state=TaskState.OPEN)
-    row = TaskRow(task)
-    assert row._render_markup is False
+def test_task_text_with_brackets_is_not_parsed_as_markup() -> None:
+    task = Task(id=1, text="Buy [bold]milk[/bold]", state=TaskState.OPEN)
+
+    async def scenario() -> None:
+        app = RookApp(tasks=[task])
+        async with app.run_test() as pilot:
+            row = next(iter(pilot.app.query(TaskRow)))
+            display = row.query_one(Static)
+            rendered = _render_plain(display)
+            assert "Buy [bold]milk[/bold]" in rendered
+
+    asyncio.run(scenario())
