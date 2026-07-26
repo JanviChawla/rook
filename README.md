@@ -1,9 +1,9 @@
-# Rook ♜
+# Rook ♖
 
 A local, keyboard-first terminal journal for working through one day at a time.
 
 ```text
-Rook ♜  Friday, July 24, 2026
+Rook ♖  Friday, July 24, 2026
 ( •̀ᴗ•́ )و  "Your next move."
 
 ❯ • Finish the presentation

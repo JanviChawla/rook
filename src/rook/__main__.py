@@ -1,5 +1,8 @@
+from rook.app import RookApp
+
+
 def main() -> int:
-    print("Rook (development scaffold) - no interface yet.")
+    RookApp().run()
     return 0
 
 
