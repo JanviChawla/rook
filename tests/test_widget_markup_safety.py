@@ -6,8 +6,9 @@ explicitly disabled for these widgets.
 
 from rich.console import Console
 
+from rook.domain.tasks import Task, TaskState
 from rook.widgets.shortcut_footer import ShortcutFooter
-from rook.widgets.task_list import TaskListView
+from rook.widgets.task_row import TaskRow
 
 
 def _render_plain(widget) -> str:
@@ -26,6 +27,7 @@ def test_shortcut_footer_does_not_parse_bracketed_hints_as_markup() -> None:
     assert "[q] quit" in rendered
 
 
-def test_task_list_view_disables_markup_parsing() -> None:
-    view = TaskListView([])
-    assert view._render_markup is False
+def test_task_row_disables_markup_parsing() -> None:
+    task = Task(id=1, text="Buy groceries", state=TaskState.OPEN)
+    row = TaskRow(task)
+    assert row._render_markup is False
