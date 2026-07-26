@@ -66,7 +66,9 @@ class TaskListView(Static):
         safe_symbols: bool = False,
         id: str | None = None,
     ) -> None:
-        super().__init__(id=id)
+        # markup=False: Task text must never be interpreted as Rich console
+        # markup, so a task literally containing "[bold]" renders unchanged.
+        super().__init__(id=id, markup=False)
         self._tasks = list(tasks)
         self._safe_symbols = safe_symbols
 

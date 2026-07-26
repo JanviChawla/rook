@@ -45,7 +45,9 @@ class ShortcutFooter(Static):
     """The one-row shortcut footer, responsive to available width."""
 
     def __init__(self, *, has_tasks: bool, id: str | None = None) -> None:
-        super().__init__(id=id)
+        # markup=False: the "[key]" hints are literal text, not Rich console
+        # markup tags, so brackets like "[n]" must not be parsed as styling.
+        super().__init__(id=id, markup=False)
         self._has_tasks = has_tasks
 
     def on_mount(self) -> None:
