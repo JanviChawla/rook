@@ -25,6 +25,36 @@ Rook is inspired by the simplicity of a paper bullet journal:
 
 > Early development. The interface and core architecture are defined; implementation is underway.
 
+## Development setup
+
+Requires Python 3.10 or newer.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+```
+
+Run the test suite:
+
+```powershell
+python -m pytest
+```
+
+Run formatting, lint, and type checks:
+
+```powershell
+python -m ruff format --check .
+python -m ruff check .
+python -m mypy src
+```
+
+Run the application during development:
+
+```powershell
+python -m rook
+```
+
 ## License
 
 MIT
