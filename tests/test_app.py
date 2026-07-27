@@ -52,7 +52,8 @@ def test_today_screen_renders_header_and_mascot(tmp_path) -> None:
             expected_header = (
                 f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  Today — {format_header_date(FIXED_DATE)}"
             )
-            expected_mascot_quote = f'{branding.MASCOT}  "{branding.QUOTE}"'
+            mascot, quote = branding.pick_for_date(FIXED_DATE)
+            expected_mascot_quote = f'{mascot}  "{quote}"'
 
             assert str(header.content) == expected_header
             assert str(mascot_quote.content) == expected_mascot_quote

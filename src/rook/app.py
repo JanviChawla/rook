@@ -120,8 +120,12 @@ class RookApp(App[None]):
         # the user's existing terminal background (Section 11.9-11.10).
         self.theme = "ansi-dark"
 
+    def _mascot_quote_text(self) -> str:
+        mascot, quote = branding.pick_for_date(self._today_provider())
+        return f'{mascot}  "{quote}"'
+
     def compose(self) -> ComposeResult:
-        mascot_quote_text = f'{branding.MASCOT}  "{branding.QUOTE}"'
+        mascot_quote_text = self._mascot_quote_text()
         tasks = self._task_service.list_active_tasks()
 
         yield Static(self._header_text(), id="header", markup=False)
@@ -165,6 +169,7 @@ class RookApp(App[None]):
             return
 
         self.query_one("#header", Static).update(self._header_text())
+        self.query_one("#mascot-quote", Static).update(self._mascot_quote_text())
         tasks = self._task_service.list_active_tasks()
         await self.query_one(TaskListView).reload(tasks)
         self.query_one(ShortcutFooter).set_has_tasks(bool(tasks))
