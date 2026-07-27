@@ -1,3 +1,4 @@
+import sqlite3
 from collections.abc import Callable
 from datetime import date
 
@@ -7,9 +8,11 @@ from textual.widgets import Static
 
 from rook import branding
 from rook.formatting import format_header_date
+from rook.persistence.metadata import MetadataRepository
 from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 from rook.services.undo import UndoManager
+from rook.widgets.archive_screen import ArchiveScreen
 from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_list import TaskListView
 
@@ -90,6 +93,7 @@ class RookApp(App[None]):
         Binding(">", "toggle_migrated", "Migrate", show=False),
         Binding("d", "delete_or_remove", "Delete", show=False),
         Binding("u", "undo", "Undo", show=False),
+        Binding("a", "archive", "Archive", show=False),
     ]
 
     def __init__(
@@ -98,12 +102,14 @@ class RookApp(App[None]):
         *,
         task_service: TaskService,
         rollover_service: RolloverService,
+        connection: sqlite3.Connection | None = None,
         safe_symbols: bool = False,
     ) -> None:
         super().__init__()
         self._today_provider = today_provider
         self._task_service = task_service
         self._rollover_service = rollover_service
+        self._connection = connection
         self._rollover_pending = False
         # Session-scoped: owned here (not per-widget) so a later Routine
         # phase can share the same single undo slot (Section 6.10).
@@ -133,7 +139,7 @@ class RookApp(App[None]):
 
     def _header_text(self) -> str:
         today = self._today_provider()
-        return f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  {format_header_date(today)}"
+        return f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  Today — {format_header_date(today)}"
 
     def on_mount(self) -> None:
         self.set_interval(ROLLOVER_CHECK_INTERVAL_SECONDS, self._check_for_new_day)
@@ -203,3 +209,9 @@ class RookApp(App[None]):
         self, message: TaskListView.TasksEmptyChanged
     ) -> None:
         self.query_one(ShortcutFooter).set_has_tasks(message.has_tasks)
+
+    def action_archive(self) -> None:
+        if self._connection is None:
+            return
+        first_weekday = MetadataRepository(self._connection).get_week_start_day()
+        self.push_screen(ArchiveScreen(connection=self._connection, first_weekday=first_weekday))

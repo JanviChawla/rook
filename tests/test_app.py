@@ -50,7 +50,7 @@ def test_today_screen_renders_header_and_mascot(tmp_path) -> None:
             mascot_quote = pilot.app.query_one("#mascot-quote", Static)
 
             expected_header = (
-                f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  {format_header_date(FIXED_DATE)}"
+                f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  Today — {format_header_date(FIXED_DATE)}"
             )
             expected_mascot_quote = f'{branding.MASCOT}  "{branding.QUOTE}"'
 

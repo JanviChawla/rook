@@ -27,7 +27,11 @@ def main() -> int:
     rollover_service.roll_forward_if_needed()
 
     try:
-        RookApp(task_service=task_service, rollover_service=rollover_service).run()
+        RookApp(
+            task_service=task_service,
+            rollover_service=rollover_service,
+            connection=connection,
+        ).run()
     finally:
         connection.close()
 

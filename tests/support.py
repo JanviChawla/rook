@@ -43,6 +43,7 @@ def make_task_service(
     service.rollover_service = RolloverService(
         connection, metadata, today_provider=today_provider, now_provider=now_provider
     )
+    service.connection = connection
     return service
 
 
