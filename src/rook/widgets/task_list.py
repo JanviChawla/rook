@@ -169,13 +169,16 @@ class TaskListView(VerticalScroll):
 
         if self._creating:
             if is_blank:
+                # Section 6.5: Enter on a blank bullet ends the chain.
                 await self._cancel_creation()
             else:
-                await self._commit_edit(message.value)
+                self._save_current_text(message.value)
+                await self._continue_creating()
         elif is_blank:
             self.post_message(self.StatusMessage("Task cannot be blank."))
         else:
-            await self._commit_edit(message.value)
+            self._save_current_text(message.value)
+            await self._exit_editing()
 
     async def on_task_line_input_empty_backspace(
         self, message: TaskLineInput.EmptyBackspace
@@ -186,12 +189,26 @@ class TaskListView(VerticalScroll):
         if self._creating:
             await self._cancel_creation()
 
-    async def _commit_edit(self, value: str) -> None:
+    def _save_current_text(self, value: str) -> None:
         for index, task in enumerate(self._tasks):
             if task.id == self._editing_task_id:
                 self._tasks[index] = dataclasses.replace(task, text=value)
-                break
-        await self._exit_editing()
+                return
+
+    async def _continue_creating(self) -> None:
+        """Section 6.5: after a successful save, stay in creation mode and
+        open another blank bullet, so several Tasks can be written in a row
+        with a single `n` (the paper-bullet-journal behavior of Section
+        1.5/2.2). Cancelling this next blank restores selection to the
+        Task just saved, not all the way back to the pre-chain selection.
+        """
+        self._pre_edit_selected_task_id = self._editing_task_id
+        new_id = max((task.id for task in self._tasks), default=0) + 1
+        self._tasks.append(Task(id=new_id, text="", state=TaskState.OPEN))
+        self.selected_task_id = new_id
+        self._editing_task_id = new_id
+        self._pending_edit_value = ""
+        await self.recompose()
 
     async def _cancel_creation(self) -> None:
         self._tasks = [task for task in self._tasks if task.id != self._editing_task_id]

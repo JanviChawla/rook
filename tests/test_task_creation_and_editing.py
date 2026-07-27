@@ -36,7 +36,7 @@ def test_new_task_appends_blank_editable_row_at_the_bottom() -> None:
     _run(scenario())
 
 
-def test_create_and_save_a_task() -> None:
+def test_create_and_save_a_task_then_end_chain_with_escape() -> None:
     async def scenario() -> None:
         app = RookApp(tasks=[Task(id=1, text="Existing task", state=TaskState.OPEN)])
         async with app.run_test() as pilot:
@@ -46,15 +46,90 @@ def test_create_and_save_a_task() -> None:
             await pilot.press("enter")
 
             task_list = app.query_one(TaskListView)
-            assert _tasks_texts_and_states(task_list)[-1] == (
-                "Buy groceries",
-                TaskState.OPEN,
-            )
+            # Section 6.5: the Task is saved, and creation mode continues
+            # with a fresh blank row rather than returning to navigation.
+            assert ("Buy groceries", TaskState.OPEN) in _tasks_texts_and_states(task_list)
+            assert task_list._editing_task_id is not None
+
+            editor = app.query_one(Input)
+            assert editor.value == ""
+            assert editor.has_focus
+
+            footer = app.query_one("#footer", Static)
+            assert str(footer.content) == EDITING_FOOTER_TEXT
+
+            # Ending the chain leaves only the already-saved Task.
+            await pilot.press("escape")
+            assert _tasks_texts_and_states(task_list)[-1] == ("Buy groceries", TaskState.OPEN)
             assert task_list._editing_task_id is None
             assert not list(app.query(Input))
 
-            footer = app.query_one("#footer", Static)
-            assert str(footer.content) != EDITING_FOOTER_TEXT
+    _run(scenario())
+
+
+def test_enter_after_save_chains_to_another_blank_task() -> None:
+    async def scenario() -> None:
+        app = RookApp(tasks=[])
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            for character in "First task":
+                await pilot.press(character)
+            await pilot.press("enter")
+            for character in "Second task":
+                await pilot.press(character)
+            await pilot.press("enter")
+
+            task_list = app.query_one(TaskListView)
+            texts_and_states = _tasks_texts_and_states(task_list)
+            assert ("First task", TaskState.OPEN) in texts_and_states
+            assert ("Second task", TaskState.OPEN) in texts_and_states
+            assert len(texts_and_states) == 3  # two saved + the still-open blank
+
+            editor = app.query_one(Input)
+            assert editor.value == ""
+            assert editor.has_focus
+
+    _run(scenario())
+
+
+def test_escape_mid_chain_only_discards_current_blank() -> None:
+    async def scenario() -> None:
+        app = RookApp(tasks=[])
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            for character in "First task":
+                await pilot.press(character)
+            await pilot.press("enter")  # saved; chain continues with a new blank
+
+            first_task_id = app.query_one(TaskListView)._tasks[0].id
+
+            for character in "abc":
+                await pilot.press(character)
+            await pilot.press("escape")  # cancel only this second, unsaved blank
+
+            task_list = app.query_one(TaskListView)
+            assert _tasks_texts_and_states(task_list) == [("First task", TaskState.OPEN)]
+            assert task_list.selected_task_id == first_task_id
+            assert task_list._editing_task_id is None
+            assert not list(app.query(Input))
+
+    _run(scenario())
+
+
+def test_blank_enter_ends_chain_keeping_earlier_saved_task() -> None:
+    async def scenario() -> None:
+        app = RookApp(tasks=[])
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            for character in "First task":
+                await pilot.press(character)
+            await pilot.press("enter")  # saved; chain continues
+            await pilot.press("enter")  # blank Enter ends the chain
+
+            task_list = app.query_one(TaskListView)
+            assert _tasks_texts_and_states(task_list) == [("First task", TaskState.OPEN)]
+            assert task_list._editing_task_id is None
+            assert not list(app.query(Input))
 
     _run(scenario())
 
