@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 
 import pytest
 from textual.widgets import Input, Static
@@ -6,8 +7,10 @@ from textual.widgets import Input, Static
 from rook.app import RookApp
 from rook.domain.tasks import Task, TaskState
 from rook.persistence.database import connect
+from rook.persistence.metadata import MetadataRepository
 from rook.persistence.migrations import migrate
 from rook.persistence.tasks import TaskRepository
+from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 from rook.widgets.shortcut_footer import TODAY_EMPTY_FOOTER, select_footer_text
 from rook.widgets.task_list import TaskListView
@@ -36,7 +39,7 @@ def test_x_transition_table(tmp_path, initial_state, expected) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("x")
             task_list = app.query_one(TaskListView)
@@ -60,7 +63,7 @@ def test_migrate_transition_table(tmp_path, initial_state, expected) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press(">")
             task_list = app.query_one(TaskListView)
@@ -76,7 +79,7 @@ def test_d_soft_deletes_non_deleted_task(tmp_path, initial_state) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("d")
             task_list = app.query_one(TaskListView)
@@ -92,7 +95,7 @@ def test_second_d_permanently_removes(tmp_path) -> None:
     service = make_task_service(path, tasks=[Task(id=1, text="Gone soon", state=TaskState.DELETED)])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("d")
             task_list = app.query_one(TaskListView)
@@ -114,7 +117,7 @@ def test_state_change_survives_restart(tmp_path) -> None:
     service = make_task_service(path, tasks=[Task(id=1, text="Task", state=TaskState.OPEN)])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("x")
 
@@ -136,7 +139,7 @@ def test_state_change_does_not_move_the_row(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("down")  # selects id=2
             await pilot.press("x")
@@ -156,7 +159,7 @@ def test_selection_after_removal_chooses_next(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("up")  # initial selection is id=2 (first Open); move to id=1
             task_list = app.query_one(TaskListView)
@@ -178,7 +181,7 @@ def test_selection_after_removal_chooses_previous_when_no_next(tmp_path) -> None
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("down")
             await pilot.press("down")  # selects id=3, the last row
@@ -198,7 +201,7 @@ def test_selection_after_removing_the_only_task_is_empty(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("d")
             task_list = app.query_one(TaskListView)
@@ -215,11 +218,14 @@ def test_selection_after_removing_the_only_task_is_empty(tmp_path) -> None:
 def test_state_change_failure_leaves_visual_state_unchanged(tmp_path) -> None:
     connection = connect(tmp_path / "test.sqlite3")
     migrate(connection)
+    metadata = MetadataRepository(connection)
+    metadata.set_last_processed_date(date.today())
     service = TaskService(TaskRepository(connection))
+    rollover_service = RolloverService(connection, metadata)
     service.create_task("Task")
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=rollover_service)
         async with app.run_test() as pilot:
             connection.close()  # simulate persistence becoming unavailable
 
@@ -240,7 +246,7 @@ def test_state_keys_are_inert_while_editing(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             for character in "x>d":

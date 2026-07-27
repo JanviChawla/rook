@@ -7,8 +7,10 @@ from pathlib import Path
 
 from rook.domain.tasks import Task
 from rook.persistence.database import connect
+from rook.persistence.metadata import MetadataRepository
 from rook.persistence.migrations import migrate
 from rook.persistence.tasks import TaskRepository
+from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 
 
@@ -20,14 +22,29 @@ def make_task_service(
     today_provider: Callable[[], date] = date.today,
 ) -> TaskService:
     """A TaskService backed by a fresh temporary database, pre-seeded with
-    the given Tasks (preserving their exact ids, text, and state)."""
+    the given Tasks (preserving their exact ids, text, and state).
+
+    A matching RolloverService (same connection) is attached as
+    `.rollover_service`, with `last_processed_date` pre-set to today so
+    ordinary tests unrelated to Day Rollover don't trigger one as a side
+    effect of constructing a RookApp.
+    """
     connection = connect(db_path)
     migrate(connection)
     for task in tasks:
         _seed_task(connection, task, now=now_provider(), local_date=today_provider())
-    return TaskService(
+
+    metadata = MetadataRepository(connection)
+    metadata.set_last_processed_date(today_provider())
+
+    service = TaskService(
         TaskRepository(connection), now_provider=now_provider, today_provider=today_provider
     )
+    service.rollover_service = RolloverService(
+        connection, metadata, today_provider=today_provider, now_provider=now_provider
+    )
+    service.connection = connection
+    return service
 
 
 def _seed_task(

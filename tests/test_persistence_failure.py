@@ -1,11 +1,14 @@
 import asyncio
+from datetime import date
 
 from textual.widgets import Input, Static
 
 from rook.app import RookApp
 from rook.persistence.database import connect
+from rook.persistence.metadata import MetadataRepository
 from rook.persistence.migrations import migrate
 from rook.persistence.tasks import TaskRepository
+from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 from rook.widgets.task_list import TaskListView
 
@@ -15,10 +18,13 @@ def test_write_failure_during_creation_keeps_ui_and_domain_state_consistent(tmp_
     and the user's in-progress text must not be silently lost."""
     connection = connect(tmp_path / "test.sqlite3")
     migrate(connection)
+    metadata = MetadataRepository(connection)
+    metadata.set_last_processed_date(date.today())
     service = TaskService(TaskRepository(connection))
+    rollover_service = RolloverService(connection, metadata)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=rollover_service)
         async with app.run_test() as pilot:
             connection.close()  # simulate persistence becoming unavailable
 

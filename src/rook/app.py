@@ -1,3 +1,4 @@
+import sqlite3
 from collections.abc import Callable
 from datetime import date
 
@@ -7,12 +8,20 @@ from textual.widgets import Static
 
 from rook import branding
 from rook.formatting import format_header_date
+from rook.persistence.metadata import MetadataRepository
+from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 from rook.services.undo import UndoManager
+from rook.widgets.archive_screen import ArchiveScreen
 from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_list import TaskListView
 
 TodayProvider = Callable[[], date]
+
+# Section 21.13 explicitly excludes anything more frequent than needed; a
+# once-a-minute check is enough to notice a live midnight crossing without
+# being a tight polling loop.
+ROLLOVER_CHECK_INTERVAL_SECONDS = 60
 
 
 class RookApp(App[None]):
@@ -84,6 +93,7 @@ class RookApp(App[None]):
         Binding(">", "toggle_migrated", "Migrate", show=False),
         Binding("d", "delete_or_remove", "Delete", show=False),
         Binding("u", "undo", "Undo", show=False),
+        Binding("a", "archive", "Archive", show=False),
     ]
 
     def __init__(
@@ -91,11 +101,16 @@ class RookApp(App[None]):
         today_provider: TodayProvider = date.today,
         *,
         task_service: TaskService,
+        rollover_service: RolloverService,
+        connection: sqlite3.Connection | None = None,
         safe_symbols: bool = False,
     ) -> None:
         super().__init__()
         self._today_provider = today_provider
         self._task_service = task_service
+        self._rollover_service = rollover_service
+        self._connection = connection
+        self._rollover_pending = False
         # Session-scoped: owned here (not per-widget) so a later Routine
         # phase can share the same single undo slot (Section 6.10).
         self._undo_manager = UndoManager()
@@ -106,14 +121,10 @@ class RookApp(App[None]):
         self.theme = "ansi-dark"
 
     def compose(self) -> ComposeResult:
-        today = self._today_provider()
-        header_text = (
-            f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  {format_header_date(today)}"
-        )
         mascot_quote_text = f'{branding.MASCOT}  "{branding.QUOTE}"'
         tasks = self._task_service.list_active_tasks()
 
-        yield Static(header_text, id="header", markup=False)
+        yield Static(self._header_text(), id="header", markup=False)
         yield Static(mascot_quote_text, id="mascot-quote", markup=False)
         yield Static("", id="spacer")
         yield TaskListView(
@@ -125,6 +136,40 @@ class RookApp(App[None]):
         )
         yield Static("", id="status", markup=False)
         yield ShortcutFooter(has_tasks=bool(tasks), id="footer")
+
+    def _header_text(self) -> str:
+        today = self._today_provider()
+        return f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  Today — {format_header_date(today)}"
+
+    def on_mount(self) -> None:
+        self.set_interval(ROLLOVER_CHECK_INTERVAL_SECONDS, self._check_for_new_day)
+
+    async def _check_for_new_day(self) -> None:
+        if self.query_one(TaskListView).is_editing:
+            # Section 18.12: defer while the user is actively typing;
+            # on_task_list_view_editing_changed runs it once they finish.
+            self._rollover_pending = True
+            return
+        await self._apply_rollover_if_needed()
+
+    async def _apply_rollover_if_needed(self) -> None:
+        try:
+            result = self._rollover_service.roll_forward_if_needed()
+        except Exception:
+            # A transient failure here must not crash a running session -
+            # Section 16.24's fatal-error handling is for startup, not a
+            # live background reconciliation. The next check retries.
+            return
+
+        if not result.changed:
+            return
+
+        self.query_one("#header", Static).update(self._header_text())
+        tasks = self._task_service.list_active_tasks()
+        await self.query_one(TaskListView).reload(tasks)
+        self.query_one(ShortcutFooter).set_has_tasks(bool(tasks))
+        # Section 6.10: Day Rollover clears session undo after completing.
+        self._undo_manager.clear()
 
     def action_cursor_up(self) -> None:
         self.query_one(TaskListView).select_previous()
@@ -153,11 +198,20 @@ class RookApp(App[None]):
     def on_task_list_view_status_message(self, message: TaskListView.StatusMessage) -> None:
         self.query_one("#status", Static).update(message.text)
 
-    def on_task_list_view_editing_changed(self, message: TaskListView.EditingChanged) -> None:
+    async def on_task_list_view_editing_changed(self, message: TaskListView.EditingChanged) -> None:
         self.query_one(ShortcutFooter).set_editing(message.editing)
         self.query_one("#status", Static).update("")
+        if not message.editing and self._rollover_pending:
+            self._rollover_pending = False
+            await self._apply_rollover_if_needed()
 
     def on_task_list_view_tasks_empty_changed(
         self, message: TaskListView.TasksEmptyChanged
     ) -> None:
         self.query_one(ShortcutFooter).set_has_tasks(message.has_tasks)
+
+    def action_archive(self) -> None:
+        if self._connection is None:
+            return
+        first_weekday = MetadataRepository(self._connection).get_week_start_day()
+        self.push_screen(ArchiveScreen(connection=self._connection, first_weekday=first_weekday))

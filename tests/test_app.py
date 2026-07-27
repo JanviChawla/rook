@@ -40,13 +40,17 @@ def test_today_screen_renders_header_and_mascot(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             header = pilot.app.query_one("#header", Static)
             mascot_quote = pilot.app.query_one("#mascot-quote", Static)
 
             expected_header = (
-                f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  {format_header_date(FIXED_DATE)}"
+                f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  Today — {format_header_date(FIXED_DATE)}"
             )
             expected_mascot_quote = f'{branding.MASCOT}  "{branding.QUOTE}"'
 
@@ -60,7 +64,11 @@ def test_populated_today_shows_full_footer_variant_for_default_size(tmp_path) ->
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             footer = pilot.app.query_one("#footer", Static)
             expected = select_footer_text(TODAY_FOOTER, app.size.width)
@@ -73,7 +81,11 @@ def test_empty_today_shows_reduced_footer_variant(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             footer = pilot.app.query_one("#footer", Static)
             expected = select_footer_text(TODAY_EMPTY_FOOTER, app.size.width)
@@ -86,7 +98,11 @@ def test_empty_today_shows_empty_state_message(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             task_list = pilot.app.query_one("#task-list", TaskListView)
             message = task_list.query_one(Static)
@@ -105,7 +121,11 @@ def test_mixed_state_tasks_render_expected_symbols(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             rendered = "\n".join(
                 str(row.query_one(Static).content) for row in pilot.app.query(TaskRow)
@@ -125,7 +145,11 @@ def test_uses_terminal_native_background_and_foreground(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test():
             assert app.theme == "ansi-dark"
             theme = app.get_theme(app.theme)
@@ -140,7 +164,11 @@ def test_header_is_bold(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             header = pilot.app.query_one("#header", Static)
             assert header.styles.text_style.bold
@@ -157,7 +185,11 @@ def test_task_list_scrollbar_uses_a_slim_ansi_safe_style(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             task_list = pilot.app.query_one(TaskListView)
             assert task_list.styles.scrollbar_size_vertical == 1
@@ -171,7 +203,11 @@ def test_pressing_q_quits(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             await pilot.press("q")
             assert app.return_code == 0
@@ -188,7 +224,11 @@ def test_initial_selection_follows_priority_order(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test():
             assert _selected_task_ids(app) == [1]
 
@@ -199,7 +239,11 @@ def test_down_then_up_returns_to_original_selection(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             await pilot.press("down")
             assert _selected_task_ids(app) == [2]
@@ -213,7 +257,11 @@ def test_up_at_first_row_stays_on_first_row(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             await pilot.press("up")
             assert _selected_task_ids(app) == [1]
@@ -225,7 +273,11 @@ def test_down_at_last_row_stays_on_last_row(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             for _ in range(10):
                 await pilot.press("down")
@@ -240,7 +292,11 @@ def test_navigation_does_not_mutate_task_state(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             task_list = app.query_one("#task-list", TaskListView)
             states_before = [task.state for task in task_list._tasks]
@@ -256,7 +312,11 @@ def test_empty_list_navigation_is_safe(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test() as pilot:
             await pilot.press("down")
             await pilot.press("up")
@@ -270,7 +330,11 @@ def test_resize_preserves_selection(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test(size=(80, 24)) as pilot:
             await pilot.press("down")
             assert _selected_task_ids(app) == [2]
@@ -286,7 +350,11 @@ def test_long_list_scrolls_selected_row_into_view(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(today_provider=_fixed_today, task_service=service)
+        app = RookApp(
+            today_provider=_fixed_today,
+            task_service=service,
+            rollover_service=service.rollover_service,
+        )
         async with app.run_test(size=(80, 16)) as pilot:
             task_list = app.query_one("#task-list", TaskListView)
             assert task_list.scroll_offset.y == 0
