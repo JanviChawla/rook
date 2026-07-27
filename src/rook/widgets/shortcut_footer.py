@@ -16,21 +16,21 @@ class FooterVariant:
 TODAY_FOOTER = FooterVariant(
     wide=(
         "[n] new   [e] edit   [x] complete   [>] migrate   [d] delete   "
-        "[u] undo   [r] routine   [a] archive   [q] quit"
+        "[u] undo   [a] archive   [q] quit"
     ),
     medium=(
-        "n new  e edit  x done  > migrate  d delete  u undo  r routine  a archive  q quit"
+        "n new  e edit  x done  > migrate  d delete  u undo  a archive  q quit"
     ),
-    compact="n  e  x  >  d  u  r  a  q",
+    compact="n  e  x  >  d  u  a  q",
 )
 
 # Section 10.15: Today's empty state omits keys that act on a Task, since
 # none exists yet. The wide/medium/compact tiers follow the same shortening
 # pattern as the populated footer.
 TODAY_EMPTY_FOOTER = FooterVariant(
-    wide="[n] new   [r] routine   [a] archive   [q] quit",
-    medium="n new  r routine  a archive  q quit",
-    compact="n  r  a  q",
+    wide="[n] new   [a] archive   [q] quit",
+    medium="n new  a archive  q quit",
+    compact="n  a  q",
 )
 
 # Section 10.7: while creating or editing a Task inline, the footer shows
