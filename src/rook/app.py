@@ -79,6 +79,7 @@ class RookApp(App[None]):
         Binding("down", "cursor_down", "Down", show=False),
         Binding("n", "new_task", "New", show=False),
         Binding("e", "edit_task", "Edit", show=False),
+        Binding("enter", "edit_task", "Edit", show=False),
         Binding("x", "toggle_completed", "Complete", show=False),
         Binding(">", "toggle_migrated", "Migrate", show=False),
         Binding("d", "delete_or_remove", "Delete", show=False),

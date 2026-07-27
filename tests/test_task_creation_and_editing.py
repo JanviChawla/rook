@@ -261,6 +261,28 @@ def test_edit_and_save_an_existing_task(tmp_path) -> None:
     _run(scenario())
 
 
+def test_enter_from_navigation_also_edits_the_selected_task(tmp_path) -> None:
+    """Section 9.3/9.10: Enter is a second way to trigger the same edit
+    action as `e` from Today's navigation mode - not a different action."""
+    service = make_task_service(
+        tmp_path / "test.sqlite3", tasks=[Task(id=1, text="Task", state=TaskState.OPEN)]
+    )
+
+    async def scenario() -> None:
+        app = RookApp(task_service=service)
+        async with app.run_test() as pilot:
+            await pilot.press("enter")
+
+            editor = app.query_one(Input)
+            assert editor.value == "Task"
+            assert editor.has_focus
+
+            task_list = app.query_one(TaskListView)
+            assert task_list._editing_task_id == 1
+
+    _run(scenario())
+
+
 def test_edit_and_cancel_an_existing_task_restores_original_text(tmp_path) -> None:
     service = make_task_service(
         tmp_path / "test.sqlite3", tasks=[Task(id=1, text="Original", state=TaskState.COMPLETED)]
