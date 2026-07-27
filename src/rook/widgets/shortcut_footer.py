@@ -35,7 +35,7 @@ TODAY_EMPTY_FOOTER = FooterVariant(
 
 # Section 10.7: while creating or editing a Task inline, the footer shows
 # only the controls that apply to text entry.
-EDITING_FOOTER_TEXT = "[Enter] save   [Esc] cancel"
+EDITING_FOOTER_TEXT = "[Ent] save   [Esc] cancel"
 
 
 def select_footer_text(variant: FooterVariant, width: int) -> str:
