@@ -166,6 +166,13 @@ class TaskListView(VerticalScroll):
             if row.selected:
                 row.scroll_visible(animate=False)
 
+    def _scroll_to_editing_row(self) -> None:
+        try:
+            row = self.query_one(f"#task-row-{_NEW_TASK_SENTINEL_ID}", TaskRow)
+            row.scroll_visible(animate=False)
+        except Exception:
+            pass
+
     # --- Creation and editing (Phase 4/5) --------------------------------
 
     async def begin_create(self) -> None:
@@ -177,6 +184,7 @@ class TaskListView(VerticalScroll):
         self._creating = True
         self.post_message(self.EditingChanged(True))
         await self.recompose()
+        self._scroll_to_editing_row()
 
     async def begin_edit(self) -> None:
         if self._editing_task_id is not None:
@@ -249,6 +257,7 @@ class TaskListView(VerticalScroll):
         self._pre_edit_selected_task_id = created.id
         self._open_blank_row()
         await self.recompose()
+        self._scroll_to_editing_row()
 
     async def _save_edited_task(self, task_id: int, text: str) -> None:
         previous_text = next((task.text for task in self._tasks if task.id == task_id), None)
