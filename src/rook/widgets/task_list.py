@@ -113,6 +113,23 @@ class TaskListView(VerticalScroll):
                 id=f"task-row-{task.id}",
             )
 
+    @property
+    def is_editing(self) -> bool:
+        """Whether a Task row is currently being created or edited
+        (Section 18.12: a live Day Rollover must defer while this is true).
+        """
+        return self._editing_task_id is not None
+
+    async def reload(self, tasks: Sequence[Task]) -> None:
+        """Replace the active Task list after a live Day Rollover
+        (Section 6.15), preserving selection by Task id where possible."""
+        self._tasks = list(tasks)
+        if self._index_of_selected() is None:
+            self.selected_task_id = initial_selection(self._tasks)
+        self._sync_has_tasks()
+        await self.recompose()
+        self._apply_selection()
+
     # --- Navigation (Phase 3) -------------------------------------------
 
     def select_previous(self) -> None:

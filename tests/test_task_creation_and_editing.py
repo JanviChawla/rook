@@ -24,7 +24,7 @@ def test_new_task_appends_blank_editable_row_at_the_bottom(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
 
@@ -51,7 +51,7 @@ def test_editor_cursor_uses_reversed_terminal_default_colors(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             editor = app.query_one(Input)
@@ -67,7 +67,7 @@ def test_create_and_save_a_task_then_end_chain_with_escape(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             for character in "Buy groceries":
@@ -100,7 +100,7 @@ def test_enter_after_save_chains_to_another_blank_task(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             for character in "First task":
@@ -127,7 +127,7 @@ def test_escape_mid_chain_only_discards_current_blank(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             for character in "First task":
@@ -153,7 +153,7 @@ def test_blank_enter_ends_chain_keeping_earlier_saved_task(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             for character in "First task":
@@ -175,7 +175,7 @@ def test_cancel_new_task_with_escape_leaves_no_blank_row(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             task_list = app.query_one(TaskListView)
             count_before = len(task_list._tasks)
@@ -198,7 +198,7 @@ def test_cancel_empty_new_task_with_backspace(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             task_list = app.query_one(TaskListView)
             count_before = len(task_list._tasks)
@@ -219,7 +219,7 @@ def test_enter_on_blank_new_task_cancels_silently(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             task_list = app.query_one(TaskListView)
             count_before = len(task_list._tasks)
@@ -241,7 +241,7 @@ def test_edit_and_save_an_existing_task(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
 
@@ -269,7 +269,7 @@ def test_enter_from_navigation_also_edits_the_selected_task(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("enter")
 
@@ -289,7 +289,7 @@ def test_edit_and_cancel_an_existing_task_restores_original_text(tmp_path) -> No
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             for character in "junk":
@@ -309,7 +309,7 @@ def test_saving_blank_existing_task_is_rejected_and_stays_in_edit_mode(tmp_path)
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             for _ in "Original":
@@ -337,7 +337,7 @@ def test_backspace_on_empty_existing_edit_does_not_cancel(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             await pilot.press("backspace")  # empties the field
@@ -356,7 +356,7 @@ def test_shortcut_letters_and_migrate_symbol_insert_as_text_while_editing(tmp_pa
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             await pilot.press("backspace")  # clear the seeded placeholder text
@@ -378,7 +378,7 @@ def test_pasting_multiline_text_normalizes_to_single_line(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             editor = app.query_one(Input)
@@ -395,7 +395,7 @@ def test_text_length_is_capped_at_1000_code_points(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             editor = app.query_one(Input)
@@ -419,7 +419,7 @@ def test_up_down_are_ignored_while_editing(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             await pilot.press("down")

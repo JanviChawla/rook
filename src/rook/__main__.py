@@ -1,8 +1,10 @@
 from rook.app import RookApp
 from rook.paths import default_database_path
 from rook.persistence.database import connect
+from rook.persistence.metadata import MetadataRepository
 from rook.persistence.migrations import UnsupportedSchemaVersionError, migrate
 from rook.persistence.tasks import TaskRepository
+from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 
 
@@ -19,8 +21,13 @@ def main() -> int:
         return 1
 
     task_service = TaskService(TaskRepository(connection))
+    rollover_service = RolloverService(connection, MetadataRepository(connection))
+
+    # Section 16.8: rollover runs once at startup, before Today ever renders.
+    rollover_service.roll_forward_if_needed()
+
     try:
-        RookApp(task_service=task_service).run()
+        RookApp(task_service=task_service, rollover_service=rollover_service).run()
     finally:
         connection.close()
 

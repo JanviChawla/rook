@@ -37,7 +37,7 @@ def test_task_text_with_brackets_is_not_parsed_as_markup(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[task])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             row = next(iter(pilot.app.query(TaskRow)))
             display = row.query_one(Static)

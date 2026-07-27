@@ -1,4 +1,5 @@
 import asyncio
+from datetime import date
 
 import pytest
 from textual.widgets import Static
@@ -6,8 +7,10 @@ from textual.widgets import Static
 from rook.app import RookApp
 from rook.domain.tasks import Task, TaskState
 from rook.persistence.database import connect
+from rook.persistence.metadata import MetadataRepository
 from rook.persistence.migrations import migrate
 from rook.persistence.tasks import TaskRepository
+from rook.services.rollover import RolloverService
 from rook.services.tasks import TaskService
 from rook.widgets.task_list import TaskListView
 from tests.support import make_task_service
@@ -21,7 +24,7 @@ def test_undo_creation_removes_the_created_task(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=[])
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("n")
             for character in "New task":
@@ -44,7 +47,7 @@ def test_undo_edit_restores_text(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("e")
             for _ in "Original":
@@ -84,7 +87,7 @@ def test_undo_state_change_restores_prior_state(tmp_path, key, initial_state) ->
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press(key)
             task_list = app.query_one(TaskListView)
@@ -105,7 +108,7 @@ def test_undo_permanent_removal_restores_original_position(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("down")  # select id=2
             task_list = app.query_one(TaskListView)
@@ -131,7 +134,7 @@ def test_new_mutation_replaces_pending_undo(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("x")  # completes id=1
             await pilot.press("down")
@@ -153,7 +156,7 @@ def test_navigation_does_not_replace_pending_undo(tmp_path) -> None:
     service = make_task_service(tmp_path / "test.sqlite3", tasks=tasks)
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("x")  # completes id=1
             await pilot.press("down")
@@ -172,7 +175,7 @@ def test_nothing_to_undo_message_when_absent(tmp_path) -> None:
     )
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("u")
             status = app.query_one("#status", Static)
@@ -189,7 +192,7 @@ def test_restart_clears_undo(tmp_path) -> None:
     service = make_task_service(path, tasks=[Task(id=1, text="Task", state=TaskState.OPEN)])
 
     async def first_session() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=service.rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("x")  # completes id=1; recorded only in this session's UndoManager
 
@@ -199,10 +202,12 @@ def test_restart_clears_undo(tmp_path) -> None:
     # real process would reopen the same database file after relaunch.
     connection = connect(path)
     migrate(connection)
+    fresh_metadata = MetadataRepository(connection)
     fresh_service = TaskService(TaskRepository(connection))
+    fresh_rollover = RolloverService(connection, fresh_metadata)
 
     async def second_session() -> None:
-        app = RookApp(task_service=fresh_service)
+        app = RookApp(task_service=fresh_service, rollover_service=fresh_rollover)
         async with app.run_test() as pilot:
             await pilot.press("u")
             status = app.query_one("#status", Static)
@@ -217,11 +222,14 @@ def test_restart_clears_undo(tmp_path) -> None:
 def test_failed_undo_leaves_database_and_ui_consistent(tmp_path) -> None:
     connection = connect(tmp_path / "test.sqlite3")
     migrate(connection)
+    metadata = MetadataRepository(connection)
+    metadata.set_last_processed_date(date.today())
     service = TaskService(TaskRepository(connection))
+    rollover_service = RolloverService(connection, metadata)
     service.create_task("Task")
 
     async def scenario() -> None:
-        app = RookApp(task_service=service)
+        app = RookApp(task_service=service, rollover_service=rollover_service)
         async with app.run_test() as pilot:
             await pilot.press("x")  # completes id=1; records an undo
 
