@@ -1,3 +1,5 @@
+import sys
+
 from rook.app import RookApp
 from rook.paths import default_database_path
 from rook.persistence.database import connect
@@ -9,6 +11,10 @@ from rook.services.tasks import TaskService
 
 
 def main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] == "--data-path":
+        print(default_database_path())
+        return 0
+
     db_path = default_database_path()
     connection = connect(db_path)
 
