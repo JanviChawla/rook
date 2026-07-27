@@ -11,6 +11,13 @@ from rook.domain.tasks import Task, TaskState, initial_selection
 from rook.domain.tasks import toggle_completed as compute_toggled_completed
 from rook.domain.tasks import toggle_migrated as compute_toggled_migrated
 from rook.services.tasks import PersistenceError, TaskService
+from rook.services.undo import (
+    DeleteCreatedTask,
+    RestoreTaskSnapshot,
+    RestoreTaskState,
+    RestoreTaskText,
+    UndoManager,
+)
 from rook.widgets.task_line_input import TaskLineInput
 from rook.widgets.task_row import TaskRow
 
@@ -65,6 +72,7 @@ class TaskListView(VerticalScroll):
         tasks: Sequence[Task],
         *,
         task_service: TaskService,
+        undo_manager: UndoManager,
         safe_symbols: bool = False,
         id: str | None = None,
     ) -> None:
@@ -80,6 +88,7 @@ class TaskListView(VerticalScroll):
         super().__init__(id=id, can_focus=False)
         self._tasks = list(tasks)
         self._task_service = task_service
+        self._undo_manager = undo_manager
         self._safe_symbols = safe_symbols
         self.selected_task_id: int | None = initial_selection(self._tasks)
         self._editing_task_id: int | None = None
@@ -213,6 +222,7 @@ class TaskListView(VerticalScroll):
         index = self._index_of_selected()
         if index is not None:
             self._tasks[index] = created
+        self._undo_manager.record(DeleteCreatedTask(created.id))
 
         # Section 6.5: stay in creation mode and open another blank bullet,
         # so several Tasks can be written in a row with a single `n` (the
@@ -224,6 +234,8 @@ class TaskListView(VerticalScroll):
         await self.recompose()
 
     async def _save_edited_task(self, task_id: int, text: str) -> None:
+        previous_text = next((task.text for task in self._tasks if task.id == task_id), None)
+
         try:
             updated = self._task_service.update_task_text(task_id, text)
         except PersistenceError:
@@ -234,6 +246,9 @@ class TaskListView(VerticalScroll):
             if task.id == updated.id:
                 self._tasks[index] = updated
                 break
+
+        if previous_text is not None:
+            self._undo_manager.record(RestoreTaskText(task_id, previous_text))
         await self._exit_editing()
 
     def _open_blank_row(self) -> None:
@@ -283,13 +298,14 @@ class TaskListView(VerticalScroll):
             return
 
         try:
-            self._task_service.delete_task(task.id)
+            snapshot = self._task_service.delete_task(task.id)
         except PersistenceError:
             self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
             return
 
         del self._tasks[index]
         self.selected_task_id = self._select_after_removal(index)
+        self._undo_manager.record(RestoreTaskSnapshot(index=index, snapshot=snapshot))
         self._sync_has_tasks()
         await self.recompose()
 
@@ -300,7 +316,8 @@ class TaskListView(VerticalScroll):
         if index is None:
             return
         task = self._tasks[index]
-        new_state = transform(task.state)
+        previous_state = task.state
+        new_state = transform(previous_state)
 
         try:
             updated = self._task_service.set_task_state(task.id, new_state)
@@ -308,9 +325,8 @@ class TaskListView(VerticalScroll):
             self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
             return
 
-        self._tasks[index] = updated
-        row = self.query_one(f"#task-row-{updated.id}", TaskRow)
-        row.set_item(updated)
+        self._undo_manager.record(RestoreTaskState(task.id, previous_state))
+        self._replace_task_in_place(updated)
 
     def _select_after_removal(self, removed_index: int) -> int | None:
         if removed_index < len(self._tasks):
@@ -318,3 +334,56 @@ class TaskListView(VerticalScroll):
         if removed_index > 0:
             return self._tasks[removed_index - 1].id
         return None
+
+    # --- Undo (Phase 7) ---------------------------------------------------
+
+    async def undo(self) -> None:
+        if self._editing_task_id is not None:
+            return
+
+        command = self._undo_manager.take()
+        if command is None:
+            self.post_message(self.StatusMessage("Nothing to undo."))
+            return
+
+        try:
+            if isinstance(command, DeleteCreatedTask):
+                self._task_service.discard_created_task(command.task_id)
+                index = next(
+                    (i for i, task in enumerate(self._tasks) if task.id == command.task_id),
+                    None,
+                )
+                if index is not None:
+                    del self._tasks[index]
+                    self.selected_task_id = self._select_after_removal(index)
+                    self._sync_has_tasks()
+                await self.recompose()
+
+            elif isinstance(command, RestoreTaskText):
+                updated = self._task_service.update_task_text(command.task_id, command.text)
+                self._replace_task_in_place(updated)
+
+            elif isinstance(command, RestoreTaskState):
+                updated = self._task_service.set_task_state(command.task_id, command.state)
+                self._replace_task_in_place(updated)
+
+            elif isinstance(command, RestoreTaskSnapshot):
+                restored = self._task_service.restore_task(command.snapshot)
+                self._tasks.insert(command.index, restored)
+                self.selected_task_id = restored.id
+                self._sync_has_tasks()
+                await self.recompose()
+
+        except PersistenceError:
+            self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
+            # Leave the database/UI exactly as they were, and re-arm the
+            # same command so the user can retry once persistence recovers.
+            self._undo_manager.record(command)
+
+    def _replace_task_in_place(self, updated: Task) -> None:
+        for index, task in enumerate(self._tasks):
+            if task.id == updated.id:
+                self._tasks[index] = updated
+                break
+        row = self.query_one(f"#task-row-{updated.id}", TaskRow)
+        row.set_item(updated)

@@ -3,7 +3,7 @@ from collections.abc import Callable
 from datetime import date, datetime
 
 from rook.domain.tasks import Task, TaskState
-from rook.persistence.tasks import TaskRepository
+from rook.persistence.tasks import TaskRepository, TaskSnapshot
 
 
 class PersistenceError(Exception):
@@ -61,10 +61,25 @@ class TaskService:
         except sqlite3.Error as error:
             raise PersistenceError(str(error)) from error
 
-    def delete_task(self, task_id: int) -> Task:
+    def delete_task(self, task_id: int) -> TaskSnapshot:
         """Permanently remove a Soft-Deleted Task, returning its last
-        known data so a future undo (Phase 7) can restore it."""
+        known row so a same-session undo can restore it precisely."""
         try:
             return self._repository.delete_active_task(task_id)
+        except sqlite3.Error as error:
+            raise PersistenceError(str(error)) from error
+
+    def restore_task(self, snapshot: TaskSnapshot) -> Task:
+        """Undo a permanent removal (Phase 7)."""
+        try:
+            return self._repository.restore_task(snapshot)
+        except sqlite3.Error as error:
+            raise PersistenceError(str(error)) from error
+
+    def discard_created_task(self, task_id: int) -> None:
+        """Undo a Task creation (Phase 7). Distinct from delete_task
+        because a just-created Task is Open, not Deleted."""
+        try:
+            self._repository.delete_task_by_id(task_id)
         except sqlite3.Error as error:
             raise PersistenceError(str(error)) from error

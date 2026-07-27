@@ -8,6 +8,7 @@ from textual.widgets import Static
 from rook import branding
 from rook.formatting import format_header_date
 from rook.services.tasks import TaskService
+from rook.services.undo import UndoManager
 from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_list import TaskListView
 
@@ -81,6 +82,7 @@ class RookApp(App[None]):
         Binding("x", "toggle_completed", "Complete", show=False),
         Binding(">", "toggle_migrated", "Migrate", show=False),
         Binding("d", "delete_or_remove", "Delete", show=False),
+        Binding("u", "undo", "Undo", show=False),
     ]
 
     def __init__(
@@ -93,6 +95,9 @@ class RookApp(App[None]):
         super().__init__()
         self._today_provider = today_provider
         self._task_service = task_service
+        # Session-scoped: owned here (not per-widget) so a later Routine
+        # phase can share the same single undo slot (Section 6.10).
+        self._undo_manager = UndoManager()
         self._safe_symbols = safe_symbols
         # Map foreground/background to the terminal's own ANSI defaults
         # instead of Textual's fixed truecolor theme, so the app respects
@@ -111,7 +116,11 @@ class RookApp(App[None]):
         yield Static(mascot_quote_text, id="mascot-quote", markup=False)
         yield Static("", id="spacer")
         yield TaskListView(
-            tasks, task_service=self._task_service, safe_symbols=self._safe_symbols, id="task-list"
+            tasks,
+            task_service=self._task_service,
+            undo_manager=self._undo_manager,
+            safe_symbols=self._safe_symbols,
+            id="task-list",
         )
         yield Static("", id="status", markup=False)
         yield ShortcutFooter(has_tasks=bool(tasks), id="footer")
@@ -136,6 +145,9 @@ class RookApp(App[None]):
 
     async def action_delete_or_remove(self) -> None:
         await self.query_one(TaskListView).delete_or_remove()
+
+    async def action_undo(self) -> None:
+        await self.query_one(TaskListView).undo()
 
     def on_task_list_view_status_message(self, message: TaskListView.StatusMessage) -> None:
         self.query_one("#status", Static).update(message.text)

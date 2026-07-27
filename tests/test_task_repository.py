@@ -97,7 +97,12 @@ def test_delete_active_task_removes_row_and_returns_prior_data(tmp_path) -> None
     repository.set_task_state(created.id, TaskState.DELETED, now=_NOW, local_date=_TODAY)
 
     removed = repository.delete_active_task(created.id)
-    assert removed == Task(id=created.id, text="Buy another monitor", state=TaskState.DELETED)
+    assert removed.id == created.id
+    assert removed.text == "Buy another monitor"
+    assert removed.state == TaskState.DELETED
+    assert removed.sort_order is not None
+    assert removed.created_at == _NOW.isoformat()
+    assert removed.state_date == _TODAY.isoformat()
 
     reloaded = _repository(path).list_active_tasks()
     assert reloaded == []
@@ -114,3 +119,35 @@ def test_delete_active_task_rejects_a_task_that_is_not_soft_deleted(tmp_path) ->
     # Rejected removal must not have touched the row.
     reloaded = _repository(path).list_active_tasks()
     assert reloaded == [Task(id=created.id, text="Still open", state=TaskState.OPEN)]
+
+
+def test_restore_task_reinserts_the_exact_row(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    created = repository.create_task("Buy another monitor", now=_NOW, local_date=_TODAY)
+    repository.set_task_state(created.id, TaskState.DELETED, now=_NOW, local_date=_TODAY)
+    snapshot = repository.delete_active_task(created.id)
+
+    restored = repository.restore_task(snapshot)
+    assert restored == Task(id=created.id, text="Buy another monitor", state=TaskState.DELETED)
+
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded == [Task(id=created.id, text="Buy another monitor", state=TaskState.DELETED)]
+
+
+def test_delete_task_by_id_removes_regardless_of_state(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    created = repository.create_task("Brand new", now=_NOW, local_date=_TODAY)  # still Open
+
+    repository.delete_task_by_id(created.id)
+
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded == []
+
+
+def test_delete_task_by_id_raises_if_task_does_not_exist(tmp_path) -> None:
+    repository = _repository(tmp_path / "test.sqlite3")
+
+    with pytest.raises(LookupError):
+        repository.delete_task_by_id(999)
