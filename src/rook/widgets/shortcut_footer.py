@@ -15,11 +15,11 @@ class FooterVariant:
 # Help overlay removed from the app (Section 10.14); [?] is not bound.
 TODAY_FOOTER = FooterVariant(
     wide=(
-        "[n] new   [e] edit   [x] complete   [>] migrate   [d] delete   "
+        "[n] new   [e/Ent] edit   [x] complete   [>] migrate   [d] delete   "
         "[u] undo   [a] archive   [q] quit"
     ),
     medium=(
-        "n new  e edit  x done  > migrate  d delete  u undo  a archive  q quit"
+        "n new  e/Ent edit  x done  > migrate  d delete  u undo  a archive  q quit"
     ),
     compact="n  e  x  >  d  u  a  q",
 )
@@ -35,7 +35,7 @@ TODAY_EMPTY_FOOTER = FooterVariant(
 
 # Section 10.7: while creating or editing a Task inline, the footer shows
 # only the controls that apply to text entry.
-EDITING_FOOTER_TEXT = "[Enter] save   [Esc] cancel"
+EDITING_FOOTER_TEXT = "[Ent] save   [Esc] cancel"
 
 
 def select_footer_text(variant: FooterVariant, width: int) -> str:

@@ -38,13 +38,10 @@ def render_task_row_text(task: Task, *, selected: bool, width: int, safe_symbols
     for continuation in wrapped_lines[1:]:
         row.append("\n" + " " * PREFIX_WIDTH + continuation)
 
-    if task.state is TaskState.DELETED:
-        if safe_symbols:
-            row.stylize("dim")
-        else:
-            row.stylize("strike", len(prefix))
-    elif task.state in (TaskState.COMPLETED, TaskState.MIGRATED):
-        row.stylize("dim")
+    if task.state is TaskState.OPEN:
+        row.stylize("bold", len(prefix))
+    if task.state is TaskState.DELETED and not safe_symbols:
+        row.stylize("strike", len(prefix))
 
     if selected:
         row.stylize("bold", 0, 1)

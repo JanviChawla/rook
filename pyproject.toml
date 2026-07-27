@@ -7,7 +7,7 @@ name = "rook"
 dynamic = ["version"]
 description = "A local, keyboard-first terminal daily journal."
 readme = "README.md"
-license = "MIT"
+license = "LicenseRef-Proprietary"
 requires-python = ">=3.10"
 authors = [
     { name = "Janvi Chawla" },
