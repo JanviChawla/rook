@@ -79,21 +79,14 @@ Uninstalling Rook does not delete the database.
 
 **How do I change the archive week layout from Sun–Sat to Mon–Sun?**
 
-There is no in-app setting yet. Update the value directly in the SQLite database.
-Find the exact path with `rook --data-path`, or use the default:
-
 ```powershell
-sqlite3 "$env:LOCALAPPDATA\Rook\data.sqlite3"
-```
-
-```sql
-INSERT OR REPLACE INTO app_meta (key, value) VALUES ('week_start_day', 'monday');
+rook --week-start monday
 ```
 
 To switch back to Sunday-start:
 
-```sql
-INSERT OR REPLACE INTO app_meta (key, value) VALUES ('week_start_day', 'sunday');
+```powershell
+rook --week-start sunday
 ```
 
 ## License

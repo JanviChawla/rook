@@ -19,6 +19,20 @@ def main() -> int:
         if sys.argv[1] == "--data-path":
             print(default_database_path())
             return 0
+        if sys.argv[1] == "--week-start":
+            value = sys.argv[2].lower() if len(sys.argv) > 2 else ""
+            if value not in ("sunday", "monday"):
+                print("Usage: rook --week-start sunday|monday")
+                return 1
+            db_path = default_database_path()
+            connection = connect(db_path)
+            try:
+                migrate(connection)
+                MetadataRepository(connection).set_week_start_day(0 if value == "monday" else 6)
+            finally:
+                connection.close()
+            print(f"Week start set to {value}.")
+            return 0
 
     db_path = default_database_path()
     connection = connect(db_path)
