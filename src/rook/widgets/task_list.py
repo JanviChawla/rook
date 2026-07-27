@@ -1,4 +1,3 @@
-import dataclasses
 from collections.abc import Sequence
 from typing import ClassVar
 
@@ -9,10 +8,18 @@ from textual.message import Message
 from textual.widgets import Input, Static
 
 from rook.domain.tasks import Task, TaskState, initial_selection
+from rook.services.tasks import PersistenceError, TaskService
 from rook.widgets.task_line_input import TaskLineInput
 from rook.widgets.task_row import TaskRow
 
 EMPTY_TODAY_MESSAGE = "No tasks yet. Press n to write the first one."
+
+# A brand new, not-yet-saved Task has no database id yet. SQLite's
+# AUTOINCREMENT never assigns 0 or a negative id, so this sentinel can't
+# collide with a real Task while the blank row is still being typed.
+_NEW_TASK_SENTINEL_ID = -1
+
+_SAVE_FAILED_MESSAGE = "Could not save. Your change was not applied."
 
 
 class TaskListView(VerticalScroll):
@@ -48,6 +55,7 @@ class TaskListView(VerticalScroll):
         self,
         tasks: Sequence[Task],
         *,
+        task_service: TaskService,
         safe_symbols: bool = False,
         id: str | None = None,
     ) -> None:
@@ -62,6 +70,7 @@ class TaskListView(VerticalScroll):
         # focus and arrow keys go straight to the App.
         super().__init__(id=id, can_focus=False)
         self._tasks = list(tasks)
+        self._task_service = task_service
         self._safe_symbols = safe_symbols
         self.selected_task_id: int | None = initial_selection(self._tasks)
         self._editing_task_id: int | None = None
@@ -121,19 +130,15 @@ class TaskListView(VerticalScroll):
             if row.selected:
                 row.scroll_visible(animate=False)
 
-    # --- Creation and editing (Phase 4) ----------------------------------
+    # --- Creation and editing (Phase 4/5) --------------------------------
 
     async def begin_create(self) -> None:
         if self._editing_task_id is not None:
             return
 
         self._pre_edit_selected_task_id = self.selected_task_id
-        new_id = max((task.id for task in self._tasks), default=0) + 1
-        self._tasks.append(Task(id=new_id, text="", state=TaskState.OPEN))
-        self.selected_task_id = new_id
-        self._editing_task_id = new_id
+        self._open_blank_row()
         self._creating = True
-        self._pending_edit_value = ""
         self.post_message(self.EditingChanged(True))
         await self.recompose()
 
@@ -162,7 +167,8 @@ class TaskListView(VerticalScroll):
 
     async def on_input_submitted(self, message: Input.Submitted) -> None:
         message.stop()
-        if self._editing_task_id is None:
+        editing_task_id = self._editing_task_id
+        if editing_task_id is None:
             return
 
         is_blank = message.value.strip() == ""
@@ -172,13 +178,11 @@ class TaskListView(VerticalScroll):
                 # Section 6.5: Enter on a blank bullet ends the chain.
                 await self._cancel_creation()
             else:
-                self._save_current_text(message.value)
-                await self._continue_creating()
+                await self._save_new_task(message.value)
         elif is_blank:
             self.post_message(self.StatusMessage("Task cannot be blank."))
         else:
-            self._save_current_text(message.value)
-            await self._exit_editing()
+            await self._save_edited_task(editing_task_id, message.value)
 
     async def on_task_line_input_empty_backspace(
         self, message: TaskLineInput.EmptyBackspace
@@ -189,29 +193,47 @@ class TaskListView(VerticalScroll):
         if self._creating:
             await self._cancel_creation()
 
-    def _save_current_text(self, value: str) -> None:
-        for index, task in enumerate(self._tasks):
-            if task.id == self._editing_task_id:
-                self._tasks[index] = dataclasses.replace(task, text=value)
-                return
+    async def _save_new_task(self, text: str) -> None:
+        try:
+            created = self._task_service.create_task(text)
+        except PersistenceError:
+            self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
+            return
 
-    async def _continue_creating(self) -> None:
-        """Section 6.5: after a successful save, stay in creation mode and
-        open another blank bullet, so several Tasks can be written in a row
-        with a single `n` (the paper-bullet-journal behavior of Section
-        1.5/2.2). Cancelling this next blank restores selection to the
-        Task just saved, not all the way back to the pre-chain selection.
-        """
-        self._pre_edit_selected_task_id = self._editing_task_id
-        new_id = max((task.id for task in self._tasks), default=0) + 1
-        self._tasks.append(Task(id=new_id, text="", state=TaskState.OPEN))
-        self.selected_task_id = new_id
-        self._editing_task_id = new_id
-        self._pending_edit_value = ""
+        index = self._index_of_selected()
+        if index is not None:
+            self._tasks[index] = created
+
+        # Section 6.5: stay in creation mode and open another blank bullet,
+        # so several Tasks can be written in a row with a single `n` (the
+        # paper-bullet-journal behavior of Section 1.5/2.2). Cancelling
+        # this next blank restores selection to the Task just saved, not
+        # all the way back to the pre-chain selection.
+        self._pre_edit_selected_task_id = created.id
+        self._open_blank_row()
         await self.recompose()
 
+    async def _save_edited_task(self, task_id: int, text: str) -> None:
+        try:
+            updated = self._task_service.update_task_text(task_id, text)
+        except PersistenceError:
+            self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
+            return
+
+        for index, task in enumerate(self._tasks):
+            if task.id == updated.id:
+                self._tasks[index] = updated
+                break
+        await self._exit_editing()
+
+    def _open_blank_row(self) -> None:
+        self._tasks.append(Task(id=_NEW_TASK_SENTINEL_ID, text="", state=TaskState.OPEN))
+        self.selected_task_id = _NEW_TASK_SENTINEL_ID
+        self._editing_task_id = _NEW_TASK_SENTINEL_ID
+        self._pending_edit_value = ""
+
     async def _cancel_creation(self) -> None:
-        self._tasks = [task for task in self._tasks if task.id != self._editing_task_id]
+        self._tasks = [task for task in self._tasks if task.id != _NEW_TASK_SENTINEL_ID]
         self.selected_task_id = self._pre_edit_selected_task_id
         await self._exit_editing()
 

@@ -1,0 +1,76 @@
+from datetime import date, datetime
+from pathlib import Path
+
+from rook.domain.tasks import Task, TaskState
+from rook.persistence.database import connect
+from rook.persistence.migrations import migrate
+from rook.persistence.tasks import TaskRepository
+
+_NOW = datetime(2026, 7, 24, 9, 0)
+_TODAY = date(2026, 7, 24)
+
+
+def _repository(path: Path) -> TaskRepository:
+    connection = connect(path)
+    migrate(connection)
+    return TaskRepository(connection)
+
+
+def test_create_task_and_reload_from_a_new_repository_instance(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    created = _repository(path).create_task("Buy groceries", now=_NOW, local_date=_TODAY)
+
+    reloaded = _repository(path).list_active_tasks()  # a fresh connection, same file
+    assert reloaded == [Task(id=created.id, text="Buy groceries", state=TaskState.OPEN)]
+
+
+def test_edit_task_and_reload(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    created = repository.create_task("Draft", now=_NOW, local_date=_TODAY)
+    repository.update_task_text(created.id, "Final draft", now=_NOW)
+
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded == [Task(id=created.id, text="Final draft", state=TaskState.OPEN)]
+
+
+def test_stable_order_after_restart(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    first = repository.create_task("First", now=_NOW, local_date=_TODAY)
+    second = repository.create_task("Second", now=_NOW, local_date=_TODAY)
+    third = repository.create_task("Third", now=_NOW, local_date=_TODAY)
+
+    reloaded = _repository(path).list_active_tasks()
+    assert [task.id for task in reloaded] == [first.id, second.id, third.id]
+
+
+def test_unicode_round_trip(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    text = "Buy 牛奶 and café crème — naïve résumé 🎉"
+    _repository(path).create_task(text, now=_NOW, local_date=_TODAY)
+
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded[0].text == text
+
+
+def test_quotes_apostrophes_and_sql_like_text_stored_safely(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    tricky_text = "O'Brien's \"quote\" test'; DROP TABLE tasks; --"
+    _repository(path).create_task(tricky_text, now=_NOW, local_date=_TODAY)
+
+    # If this text were ever concatenated into SQL instead of parameterized,
+    # the DROP TABLE fragment would have executed and this table would be
+    # gone. Reading it back intact proves the query was parameterized.
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded[0].text == tricky_text
+
+
+def test_temporary_databases_are_isolated_from_each_other(tmp_path) -> None:
+    repository_a = _repository(tmp_path / "a.sqlite3")
+    repository_b = _repository(tmp_path / "b.sqlite3")
+
+    repository_a.create_task("Only in A", now=_NOW, local_date=_TODAY)
+
+    assert [task.text for task in repository_a.list_active_tasks()] == ["Only in A"]
+    assert repository_b.list_active_tasks() == []

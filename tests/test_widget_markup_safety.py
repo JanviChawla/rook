@@ -13,6 +13,7 @@ from rook.app import RookApp
 from rook.domain.tasks import Task, TaskState
 from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_row import TaskRow
+from tests.support import make_task_service
 
 
 def _render_plain(widget) -> str:
@@ -31,11 +32,12 @@ def test_shortcut_footer_does_not_parse_bracketed_hints_as_markup() -> None:
     assert "[q] quit" in rendered
 
 
-def test_task_text_with_brackets_is_not_parsed_as_markup() -> None:
+def test_task_text_with_brackets_is_not_parsed_as_markup(tmp_path) -> None:
     task = Task(id=1, text="Buy [bold]milk[/bold]", state=TaskState.OPEN)
+    service = make_task_service(tmp_path / "test.sqlite3", tasks=[task])
 
     async def scenario() -> None:
-        app = RookApp(tasks=[task])
+        app = RookApp(task_service=service)
         async with app.run_test() as pilot:
             row = next(iter(pilot.app.query(TaskRow)))
             display = row.query_one(Static)

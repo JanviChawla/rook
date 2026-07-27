@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from datetime import date
 
 from textual.app import App, ComposeResult
@@ -6,36 +6,20 @@ from textual.binding import Binding
 from textual.widgets import Static
 
 from rook import branding
-from rook.domain.tasks import Task, TaskState
 from rook.formatting import format_header_date
+from rook.services.tasks import TaskService
 from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_list import TaskListView
 
 TodayProvider = Callable[[], date]
 
-# Hardcoded fictional display data for Phase 2 (Section 19.20 test-data
-# policy). Persistence arrives in Phase 5; this list is not user-editable.
-SAMPLE_TASKS: list[Task] = [
-    Task(id=1, text="Finish the client deck", state=TaskState.OPEN),
-    Task(id=2, text="Read Chapter 3", state=TaskState.MIGRATED),
-    Task(id=3, text="Submit the expense report", state=TaskState.COMPLETED),
-    Task(id=4, text="Buy another monitor", state=TaskState.DELETED),
-    Task(
-        id=5,
-        text=(
-            "Draft the long-form article explaining the design decisions "
-            "behind the terminal journal and its intentionally limited scope"
-        ),
-        state=TaskState.OPEN,
-    ),
-]
-
 
 class RookApp(App[None]):
     """The Rook terminal shell.
 
-    Phase 4 adds in-memory Task creation and editing. There is still no
-    database; Tasks live only in the running process.
+    Phase 5 replaces the in-memory Task list with SQLite as the source of
+    truth, via an injected TaskService. Task state changes, Archive, and
+    Routines are still not implemented.
     """
 
     CSS = """
@@ -69,12 +53,12 @@ class RookApp(App[None]):
         self,
         today_provider: TodayProvider = date.today,
         *,
-        tasks: Sequence[Task] | None = None,
+        task_service: TaskService,
         safe_symbols: bool = False,
     ) -> None:
         super().__init__()
         self._today_provider = today_provider
-        self._tasks = list(SAMPLE_TASKS if tasks is None else tasks)
+        self._task_service = task_service
         self._safe_symbols = safe_symbols
         # Map foreground/background to the terminal's own ANSI defaults
         # instead of Textual's fixed truecolor theme, so the app respects
@@ -85,13 +69,16 @@ class RookApp(App[None]):
         today = self._today_provider()
         header_text = f"{branding.DISPLAY_NAME} {branding.ICON}  {format_header_date(today)}"
         mascot_quote_text = f'{branding.MASCOT}  "{branding.QUOTE}"'
+        tasks = self._task_service.list_active_tasks()
 
         yield Static(header_text, id="header", markup=False)
         yield Static(mascot_quote_text, id="mascot-quote", markup=False)
         yield Static("", id="spacer")
-        yield TaskListView(self._tasks, safe_symbols=self._safe_symbols, id="task-list")
+        yield TaskListView(
+            tasks, task_service=self._task_service, safe_symbols=self._safe_symbols, id="task-list"
+        )
         yield Static("", id="status", markup=False)
-        yield ShortcutFooter(has_tasks=bool(self._tasks), id="footer")
+        yield ShortcutFooter(has_tasks=bool(tasks), id="footer")
 
     def action_cursor_up(self) -> None:
         self.query_one(TaskListView).select_previous()
