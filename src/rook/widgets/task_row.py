@@ -38,13 +38,8 @@ def render_task_row_text(task: Task, *, selected: bool, width: int, safe_symbols
     for continuation in wrapped_lines[1:]:
         row.append("\n" + " " * PREFIX_WIDTH + continuation)
 
-    if task.state is TaskState.DELETED:
-        if safe_symbols:
-            row.stylize("dim")
-        else:
-            row.stylize("strike", len(prefix))
-    elif task.state in (TaskState.COMPLETED, TaskState.MIGRATED):
-        row.stylize("dim")
+    if task.state is TaskState.DELETED and not safe_symbols:
+        row.stylize("strike", len(prefix))
 
     if selected:
         row.stylize("bold", 0, 1)
@@ -65,6 +60,12 @@ class TaskRow(Widget):
     DEFAULT_CSS = """
     TaskRow {
         height: auto;
+    }
+    TaskRow.-resolved {
+        opacity: 0.5;
+    }
+    TaskRow.-resolved.-editing {
+        opacity: 1.0;
     }
     TaskRow.-editing {
         layout: horizontal;
@@ -100,6 +101,8 @@ class TaskRow(Widget):
         self._edit_value = edit_value
         if editing:
             self.add_class("-editing")
+        if item.state is not TaskState.OPEN:
+            self.add_class("-resolved")
 
     def compose(self) -> ComposeResult:
         if self.editing:
@@ -142,6 +145,10 @@ class TaskRow(Widget):
         """Redraw after the underlying Task's state or text changed
         (Section 8), without needing the whole list to recompose."""
         self.item = item
+        if item.state is TaskState.OPEN:
+            self.remove_class("-resolved")
+        else:
+            self.add_class("-resolved")
         if not self.editing:
             self._refresh_display()
 
