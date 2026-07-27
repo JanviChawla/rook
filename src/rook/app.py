@@ -56,17 +56,14 @@ class RookApp(App[None]):
      * block in ansi_black on ansi_bright_white, which many customized
      * terminal palettes remap to something unrelated to the terminal's
      * actual foreground/background (reported as an unrelated light gray).
-     * A true hollow-outline cursor needs the ANSI "framed" style, which
-     * Textual's CSS doesn't expose and many terminals (Windows Terminal
-     * included) don't reliably render - risking an invisible cursor - so
-     * underline is used instead as the closest supported non-filled style.
-     * This is Rook's own simulated text cursor, not the terminal's
-     * hardware cursor - a full-screen app owning the whole display can't
-     * repurpose the terminal's native caret for a styled, multi-character-
-     * wide input. */
+     * Reversing the terminal's own default foreground instead keeps the
+     * filled-block look but in the user's own theme color. This is Rook's
+     * own simulated text cursor, not the terminal's hardware cursor - a
+     * full-screen app owning the whole display can't repurpose the
+     * terminal's native caret for a styled, multi-character-wide input. */
     TaskLineInput > .input--cursor {
         color: ansi_default;
-        text-style: underline;
+        text-style: reverse;
     }
 
     #footer {

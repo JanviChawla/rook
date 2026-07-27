@@ -41,11 +41,11 @@ def test_new_task_appends_blank_editable_row_at_the_bottom(tmp_path) -> None:
     _run(scenario())
 
 
-def test_editor_cursor_is_an_underline_not_a_filled_block(tmp_path) -> None:
-    """The text-entry cursor must be a non-filled underline rather than
-    "ansi-dark"'s hardcoded solid block in ansi_black on ansi_bright_white,
-    which many custom terminal palettes remap to something unrelated to
-    the terminal's actual foreground/background."""
+def test_editor_cursor_uses_reversed_terminal_default_colors(tmp_path) -> None:
+    """The text-entry cursor must be a filled block using the terminal's
+    own default foreground (reversed) rather than "ansi-dark"'s hardcoded
+    ansi_black on ansi_bright_white, which many custom terminal palettes
+    remap to something unrelated to the terminal's actual foreground."""
     service = make_task_service(
         tmp_path / "test.sqlite3", tasks=[Task(id=1, text="Existing task", state=TaskState.OPEN)]
     )
@@ -56,8 +56,7 @@ def test_editor_cursor_is_an_underline_not_a_filled_block(tmp_path) -> None:
             await pilot.press("n")
             editor = app.query_one(Input)
             cursor_style = editor.get_component_rich_style("input--cursor")
-            assert cursor_style.underline is True
-            assert not cursor_style.reverse
+            assert cursor_style.reverse is True
 
     _run(scenario())
 
