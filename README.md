@@ -98,4 +98,6 @@ INSERT OR REPLACE INTO app_meta (key, value) VALUES ('week_start_day', 'sunday')
 
 ## License
 
-MIT
+Copyright (c) 2026 Janvi Chawla. All Rights Reserved.
+
+Personal use permitted. No redistribution or derivative works without permission.
