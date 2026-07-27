@@ -43,6 +43,8 @@ def render_task_row_text(task: Task, *, selected: bool, width: int, safe_symbols
             row.stylize("dim")
         else:
             row.stylize("strike", len(prefix))
+    elif task.state in (TaskState.COMPLETED, TaskState.MIGRATED):
+        row.stylize("dim")
 
     if selected:
         row.stylize("bold", 0, 1)
