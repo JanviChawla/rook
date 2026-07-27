@@ -31,8 +31,42 @@ class RookApp(App[None]):
         height: 1;
     }
 
+    #header {
+        text-style: bold;
+    }
+
     #task-list {
         height: 1fr;
+        /* The "ansi-dark" theme doesn't define scrollbar variables (only
+         * "ansi-light" happens to), so these fall back to Textual's fixed
+         * truecolor defaults - the mismatched, chunky bar reported after
+         * scrolling a long list. Set them directly to ANSI colors instead,
+         * and use a slimmer single-column bar (Section 11.1 "compact"). */
+        scrollbar-size-vertical: 1;
+        scrollbar-color: ansi_default;
+        scrollbar-color-hover: ansi_default;
+        scrollbar-color-active: ansi_default;
+        scrollbar-background: ansi_default;
+        scrollbar-background-hover: ansi_default;
+        scrollbar-background-active: ansi_default;
+        scrollbar-corner-color: ansi_default;
+    }
+
+    /* "ansi-dark" hardcodes the text-entry cursor to a solid reverse-video
+     * block in ansi_black on ansi_bright_white, which many customized
+     * terminal palettes remap to something unrelated to the terminal's
+     * actual foreground/background (reported as an unrelated light gray).
+     * A true hollow-outline cursor needs the ANSI "framed" style, which
+     * Textual's CSS doesn't expose and many terminals (Windows Terminal
+     * included) don't reliably render - risking an invisible cursor - so
+     * underline is used instead as the closest supported non-filled style.
+     * This is Rook's own simulated text cursor, not the terminal's
+     * hardware cursor - a full-screen app owning the whole display can't
+     * repurpose the terminal's native caret for a styled, multi-character-
+     * wide input. */
+    TaskLineInput > .input--cursor {
+        color: ansi_default;
+        text-style: underline;
     }
 
     #footer {
@@ -67,7 +101,9 @@ class RookApp(App[None]):
 
     def compose(self) -> ComposeResult:
         today = self._today_provider()
-        header_text = f"{branding.DISPLAY_NAME} {branding.ICON}  {format_header_date(today)}"
+        header_text = (
+            f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  {format_header_date(today)}"
+        )
         mascot_quote_text = f'{branding.MASCOT}  "{branding.QUOTE}"'
         tasks = self._task_service.list_active_tasks()
 

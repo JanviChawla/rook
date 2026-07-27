@@ -41,6 +41,27 @@ def test_new_task_appends_blank_editable_row_at_the_bottom(tmp_path) -> None:
     _run(scenario())
 
 
+def test_editor_cursor_is_an_underline_not_a_filled_block(tmp_path) -> None:
+    """The text-entry cursor must be a non-filled underline rather than
+    "ansi-dark"'s hardcoded solid block in ansi_black on ansi_bright_white,
+    which many custom terminal palettes remap to something unrelated to
+    the terminal's actual foreground/background."""
+    service = make_task_service(
+        tmp_path / "test.sqlite3", tasks=[Task(id=1, text="Existing task", state=TaskState.OPEN)]
+    )
+
+    async def scenario() -> None:
+        app = RookApp(task_service=service)
+        async with app.run_test() as pilot:
+            await pilot.press("n")
+            editor = app.query_one(Input)
+            cursor_style = editor.get_component_rich_style("input--cursor")
+            assert cursor_style.underline is True
+            assert not cursor_style.reverse
+
+    _run(scenario())
+
+
 def test_create_and_save_a_task_then_end_chain_with_escape(tmp_path) -> None:
     service = make_task_service(
         tmp_path / "test.sqlite3", tasks=[Task(id=1, text="Existing task", state=TaskState.OPEN)]

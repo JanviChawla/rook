@@ -1,6 +1,7 @@
 import asyncio
 from datetime import date
 
+from textual.color import Color
 from textual.widgets import Static
 
 from rook import branding
@@ -45,7 +46,7 @@ def test_today_screen_renders_header_and_mascot(tmp_path) -> None:
             mascot_quote = pilot.app.query_one("#mascot-quote", Static)
 
             expected_header = (
-                f"{branding.DISPLAY_NAME} {branding.ICON}  {format_header_date(FIXED_DATE)}"
+                f"{branding.DISPLAY_NAME.lower()} {branding.ICON}  {format_header_date(FIXED_DATE)}"
             )
             expected_mascot_quote = f'{branding.MASCOT}  "{branding.QUOTE}"'
 
@@ -131,6 +132,37 @@ def test_uses_terminal_native_background_and_foreground(tmp_path) -> None:
             assert theme is not None
             assert theme.background == "ansi_default"
             assert theme.foreground == "ansi_default"
+
+    asyncio.run(scenario())
+
+
+def test_header_is_bold(tmp_path) -> None:
+    service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
+
+    async def scenario() -> None:
+        app = RookApp(today_provider=_fixed_today, task_service=service)
+        async with app.run_test() as pilot:
+            header = pilot.app.query_one("#header", Static)
+            assert header.styles.text_style.bold
+
+    asyncio.run(scenario())
+
+
+def test_task_list_scrollbar_uses_a_slim_ansi_safe_style(tmp_path) -> None:
+    """The "ansi-dark" theme (unlike "ansi-light") doesn't define scrollbar
+    colors, so without an explicit override the scrollbar falls back to
+    Textual's fixed truecolor default - a chunky, mismatched bar. The thumb
+    uses the terminal's own default foreground so it blends with the
+    user's existing theme rather than introducing a new color."""
+    service = make_task_service(tmp_path / "test.sqlite3", tasks=DEFAULT_TASKS)
+
+    async def scenario() -> None:
+        app = RookApp(today_provider=_fixed_today, task_service=service)
+        async with app.run_test() as pilot:
+            task_list = pilot.app.query_one(TaskListView)
+            assert task_list.styles.scrollbar_size_vertical == 1
+            assert task_list.styles.scrollbar_color == Color.parse("ansi_default")
+            assert task_list.styles.scrollbar_background == Color.parse("ansi_default")
 
     asyncio.run(scenario())
 
