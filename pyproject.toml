@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "rook"
+name = "rook-cli"
 dynamic = ["version"]
 description = "A local, keyboard-first terminal daily journal."
 readme = "README.md"
