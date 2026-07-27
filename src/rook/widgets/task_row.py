@@ -136,6 +136,13 @@ class TaskRow(Widget):
             if not self.editing:
                 self._refresh_display()
 
+    def set_item(self, item: Task) -> None:
+        """Redraw after the underlying Task's state or text changed
+        (Section 8), without needing the whole list to recompose."""
+        self.item = item
+        if not self.editing:
+            self._refresh_display()
+
     def _refresh_display(self) -> None:
         width = self.size.width or 80
         display = self.query_one(Static)

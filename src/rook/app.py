@@ -81,6 +81,9 @@ class RookApp(App[None]):
         Binding("down", "cursor_down", "Down", show=False),
         Binding("n", "new_task", "New", show=False),
         Binding("e", "edit_task", "Edit", show=False),
+        Binding("x", "toggle_completed", "Complete", show=False),
+        Binding(">", "toggle_migrated", "Migrate", show=False),
+        Binding("d", "delete_or_remove", "Delete", show=False),
     ]
 
     def __init__(
@@ -128,9 +131,23 @@ class RookApp(App[None]):
     async def action_edit_task(self) -> None:
         await self.query_one(TaskListView).begin_edit()
 
+    async def action_toggle_completed(self) -> None:
+        await self.query_one(TaskListView).toggle_completed()
+
+    async def action_toggle_migrated(self) -> None:
+        await self.query_one(TaskListView).toggle_migrated()
+
+    async def action_delete_or_remove(self) -> None:
+        await self.query_one(TaskListView).delete_or_remove()
+
     def on_task_list_view_status_message(self, message: TaskListView.StatusMessage) -> None:
         self.query_one("#status", Static).update(message.text)
 
     def on_task_list_view_editing_changed(self, message: TaskListView.EditingChanged) -> None:
         self.query_one(ShortcutFooter).set_editing(message.editing)
         self.query_one("#status", Static).update("")
+
+    def on_task_list_view_tasks_empty_changed(
+        self, message: TaskListView.TasksEmptyChanged
+    ) -> None:
+        self.query_one(ShortcutFooter).set_has_tasks(message.has_tasks)

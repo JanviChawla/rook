@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import ClassVar
 
 from textual.app import ComposeResult
@@ -8,6 +8,8 @@ from textual.message import Message
 from textual.widgets import Input, Static
 
 from rook.domain.tasks import Task, TaskState, initial_selection
+from rook.domain.tasks import toggle_completed as compute_toggled_completed
+from rook.domain.tasks import toggle_migrated as compute_toggled_migrated
 from rook.services.tasks import PersistenceError, TaskService
 from rook.widgets.task_line_input import TaskLineInput
 from rook.widgets.task_row import TaskRow
@@ -51,6 +53,13 @@ class TaskListView(VerticalScroll):
             self.editing = editing
             super().__init__()
 
+    class TasksEmptyChanged(Message):
+        """Whether the list has transitioned to/from having no Tasks."""
+
+        def __init__(self, has_tasks: bool) -> None:
+            self.has_tasks = has_tasks
+            super().__init__()
+
     def __init__(
         self,
         tasks: Sequence[Task],
@@ -77,6 +86,7 @@ class TaskListView(VerticalScroll):
         self._creating = False
         self._pending_edit_value = ""
         self._pre_edit_selected_task_id: int | None = None
+        self._has_tasks = bool(self._tasks)
 
     def compose(self) -> ComposeResult:
         if not self._tasks:
@@ -231,10 +241,12 @@ class TaskListView(VerticalScroll):
         self.selected_task_id = _NEW_TASK_SENTINEL_ID
         self._editing_task_id = _NEW_TASK_SENTINEL_ID
         self._pending_edit_value = ""
+        self._sync_has_tasks()
 
     async def _cancel_creation(self) -> None:
         self._tasks = [task for task in self._tasks if task.id != _NEW_TASK_SENTINEL_ID]
         self.selected_task_id = self._pre_edit_selected_task_id
+        self._sync_has_tasks()
         await self._exit_editing()
 
     async def _exit_editing(self) -> None:
@@ -243,3 +255,66 @@ class TaskListView(VerticalScroll):
         self._pending_edit_value = ""
         self.post_message(self.EditingChanged(False))
         await self.recompose()
+
+    def _sync_has_tasks(self) -> None:
+        has_tasks = bool(self._tasks)
+        if has_tasks != self._has_tasks:
+            self._has_tasks = has_tasks
+            self.post_message(self.TasksEmptyChanged(has_tasks))
+
+    # --- Task state changes (Phase 6) ------------------------------------
+
+    async def toggle_completed(self) -> None:
+        await self._change_state(compute_toggled_completed)
+
+    async def toggle_migrated(self) -> None:
+        await self._change_state(compute_toggled_migrated)
+
+    async def delete_or_remove(self) -> None:
+        if self._editing_task_id is not None:
+            return
+        index = self._index_of_selected()
+        if index is None:
+            return
+        task = self._tasks[index]
+
+        if task.state is not TaskState.DELETED:
+            await self._change_state(lambda _state: TaskState.DELETED)
+            return
+
+        try:
+            self._task_service.delete_task(task.id)
+        except PersistenceError:
+            self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
+            return
+
+        del self._tasks[index]
+        self.selected_task_id = self._select_after_removal(index)
+        self._sync_has_tasks()
+        await self.recompose()
+
+    async def _change_state(self, transform: Callable[[TaskState], TaskState]) -> None:
+        if self._editing_task_id is not None:
+            return
+        index = self._index_of_selected()
+        if index is None:
+            return
+        task = self._tasks[index]
+        new_state = transform(task.state)
+
+        try:
+            updated = self._task_service.set_task_state(task.id, new_state)
+        except PersistenceError:
+            self.post_message(self.StatusMessage(_SAVE_FAILED_MESSAGE))
+            return
+
+        self._tasks[index] = updated
+        row = self.query_one(f"#task-row-{updated.id}", TaskRow)
+        row.set_item(updated)
+
+    def _select_after_removal(self, removed_index: int) -> int | None:
+        if removed_index < len(self._tasks):
+            return self._tasks[removed_index].id
+        if removed_index > 0:
+            return self._tasks[removed_index - 1].id
+        return None

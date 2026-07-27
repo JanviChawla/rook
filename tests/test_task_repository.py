@@ -1,6 +1,8 @@
 from datetime import date, datetime
 from pathlib import Path
 
+import pytest
+
 from rook.domain.tasks import Task, TaskState
 from rook.persistence.database import connect
 from rook.persistence.migrations import migrate
@@ -74,3 +76,41 @@ def test_temporary_databases_are_isolated_from_each_other(tmp_path) -> None:
 
     assert [task.text for task in repository_a.list_active_tasks()] == ["Only in A"]
     assert repository_b.list_active_tasks() == []
+
+
+def test_set_task_state_persists_and_reloads(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    created = repository.create_task("Read Chapter 3", now=_NOW, local_date=_TODAY)
+
+    updated = repository.set_task_state(created.id, TaskState.MIGRATED, now=_NOW, local_date=_TODAY)
+    assert updated.state == TaskState.MIGRATED
+
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded == [Task(id=created.id, text="Read Chapter 3", state=TaskState.MIGRATED)]
+
+
+def test_delete_active_task_removes_row_and_returns_prior_data(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    created = repository.create_task("Buy another monitor", now=_NOW, local_date=_TODAY)
+    repository.set_task_state(created.id, TaskState.DELETED, now=_NOW, local_date=_TODAY)
+
+    removed = repository.delete_active_task(created.id)
+    assert removed == Task(id=created.id, text="Buy another monitor", state=TaskState.DELETED)
+
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded == []
+
+
+def test_delete_active_task_rejects_a_task_that_is_not_soft_deleted(tmp_path) -> None:
+    path = tmp_path / "test.sqlite3"
+    repository = _repository(path)
+    created = repository.create_task("Still open", now=_NOW, local_date=_TODAY)
+
+    with pytest.raises(LookupError):
+        repository.delete_active_task(created.id)
+
+    # Rejected removal must not have touched the row.
+    reloaded = _repository(path).list_active_tasks()
+    assert reloaded == [Task(id=created.id, text="Still open", state=TaskState.OPEN)]

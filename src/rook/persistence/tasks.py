@@ -58,6 +58,52 @@ class TaskRepository:
             ).fetchone()
         return _row_to_task(row)
 
+    def set_task_state(
+        self, task_id: int, state: TaskState, *, now: datetime, local_date: date
+    ) -> Task:
+        """Section 15.9: state_date is stamped at the moment of the
+        transition, not derived later, so historical Archive dates stay
+        stable even if the user's time zone changes afterward."""
+        timestamp = now.isoformat()
+        with self._connection:
+            cursor = self._connection.execute(
+                """
+                UPDATE tasks
+                SET state = ?, updated_at = ?, state_changed_at = ?, state_date = ?
+                WHERE id = ? AND archived_date IS NULL
+                """,
+                (state.value, timestamp, timestamp, local_date.isoformat(), task_id),
+            )
+            if cursor.rowcount != 1:
+                raise LookupError(f"No active task with id {task_id}")
+            row = self._connection.execute(
+                "SELECT id, text, state FROM tasks WHERE id = ?", (task_id,)
+            ).fetchone()
+        return _row_to_task(row)
+
+    def delete_active_task(self, task_id: int) -> Task:
+        """Second-stage delete (Section 15.14): permanently remove a
+        Soft-Deleted Task. Returns the row as it existed immediately
+        before removal, so a future undo (Phase 7) has what it needs to
+        restore it.
+        """
+        with self._connection:
+            row = self._connection.execute(
+                "SELECT id, text, state FROM tasks WHERE id = ? AND archived_date IS NULL",
+                (task_id,),
+            ).fetchone()
+            if row is None:
+                raise LookupError(f"No active task with id {task_id}")
+            removed = _row_to_task(row)
+
+            cursor = self._connection.execute(
+                "DELETE FROM tasks WHERE id = ? AND archived_date IS NULL AND state = 'deleted'",
+                (task_id,),
+            )
+            if cursor.rowcount != 1:
+                raise LookupError(f"Task {task_id} is not eligible for permanent removal")
+        return removed
+
 
 def _row_to_task(row: sqlite3.Row) -> Task:
     return Task(id=row["id"], text=row["text"], state=TaskState(row["state"]))

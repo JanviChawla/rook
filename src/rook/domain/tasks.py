@@ -43,3 +43,13 @@ def initial_selection(tasks: Sequence[Task]) -> int | None:
             if task.state is state:
                 return task.id
     return None
+
+
+def toggle_completed(state: TaskState) -> TaskState:
+    """Section 8.5: `x` returns a Completed Task to Open, otherwise completes it."""
+    return TaskState.OPEN if state is TaskState.COMPLETED else TaskState.COMPLETED
+
+
+def toggle_migrated(state: TaskState) -> TaskState:
+    """Section 8.5: `>` returns a Migrated Task to Open, otherwise migrates it."""
+    return TaskState.OPEN if state is TaskState.MIGRATED else TaskState.MIGRATED

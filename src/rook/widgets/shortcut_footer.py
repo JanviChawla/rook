@@ -65,6 +65,10 @@ class ShortcutFooter(Static):
         self._editing = editing
         self._refresh_content()
 
+    def set_has_tasks(self, has_tasks: bool) -> None:
+        self._has_tasks = has_tasks
+        self._refresh_content()
+
     def _refresh_content(self) -> None:
         if self._editing:
             self.update(EDITING_FOOTER_TEXT)

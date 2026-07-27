@@ -2,7 +2,7 @@ import sqlite3
 from collections.abc import Callable
 from datetime import date, datetime
 
-from rook.domain.tasks import Task
+from rook.domain.tasks import Task, TaskState
 from rook.persistence.tasks import TaskRepository
 
 
@@ -50,5 +50,21 @@ class TaskService:
     def update_task_text(self, task_id: int, text: str) -> Task:
         try:
             return self._repository.update_task_text(task_id, text, now=self._now_provider())
+        except sqlite3.Error as error:
+            raise PersistenceError(str(error)) from error
+
+    def set_task_state(self, task_id: int, state: TaskState) -> Task:
+        try:
+            return self._repository.set_task_state(
+                task_id, state, now=self._now_provider(), local_date=self._today_provider()
+            )
+        except sqlite3.Error as error:
+            raise PersistenceError(str(error)) from error
+
+    def delete_task(self, task_id: int) -> Task:
+        """Permanently remove a Soft-Deleted Task, returning its last
+        known data so a future undo (Phase 7) can restore it."""
+        try:
+            return self._repository.delete_active_task(task_id)
         except sqlite3.Error as error:
             raise PersistenceError(str(error)) from error
