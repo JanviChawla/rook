@@ -24,10 +24,10 @@ Rook is inspired by the simplicity of a paper bullet journal:
 
 ## Installation
 
-Requires Python 3.10 or newer. Install with [pipx](https://pipx.pypa.io) for an isolated environment:
+Requires Python 3.10 or newer. Install with [uv](https://docs.astral.sh/uv/):
 
 ```powershell
-pipx install git+https://github.com/JanviChawla/rook.git
+uv tool install rook-cli
 ```
 
 Then launch:
@@ -39,7 +39,7 @@ rook
 To upgrade later:
 
 ```powershell
-pipx upgrade rook
+uv tool upgrade rook-cli
 ```
 
 ## Keyboard reference
