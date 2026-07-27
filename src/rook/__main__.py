@@ -1,5 +1,6 @@
 import sys
 
+from rook import __version__
 from rook.app import RookApp
 from rook.paths import default_database_path
 from rook.persistence.database import connect
@@ -11,9 +12,27 @@ from rook.services.tasks import TaskService
 
 
 def main() -> int:
-    if len(sys.argv) > 1 and sys.argv[1] == "--data-path":
-        print(default_database_path())
-        return 0
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--version":
+            print(__version__)
+            return 0
+        if sys.argv[1] == "--data-path":
+            print(default_database_path())
+            return 0
+        if sys.argv[1] == "--week-start":
+            value = sys.argv[2].lower() if len(sys.argv) > 2 else ""
+            if value not in ("sunday", "monday"):
+                print("Usage: rook --week-start sunday|monday")
+                return 1
+            db_path = default_database_path()
+            connection = connect(db_path)
+            try:
+                migrate(connection)
+                MetadataRepository(connection).set_week_start_day(0 if value == "monday" else 6)
+            finally:
+                connection.close()
+            print(f"Week start set to {value}.")
+            return 0
 
     db_path = default_database_path()
     connection = connect(db_path)
