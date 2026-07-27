@@ -3,7 +3,7 @@
 A local, keyboard-first terminal journal for working through one day at a time.
 
 ```text
-Rook ♖  Friday, July 24, 2026
+rook ♖  Today — Friday, July 24, 2026
 ( •̀ᴗ•́ )و  "Your next move."
 
 ❯ • Finish the presentation
@@ -11,7 +11,7 @@ Rook ♖  Friday, July 24, 2026
   > Read Chapter 3
   × Submit the expense report
 
-[n] new   [e] edit   [x] complete   [>] migrate   [d] delete   [u] undo   [r] routine   [a] archive   [?] help   [q] quit
+[n] new   [e] edit   [x] complete   [>] migrate   [d] delete   [u] undo   [r] routine   [a] archive   [q] quit
 ```
 
 Rook is inspired by the simplicity of a paper bullet journal:
@@ -53,6 +53,26 @@ Run the application during development:
 
 ```powershell
 python -m rook
+```
+
+## FAQ
+
+**How do I change the archive week layout from Sun–Sat to Mon–Sun?**
+
+There is no in-app setting yet. Update the value directly in the SQLite database:
+
+```powershell
+sqlite3 "$env:APPDATA\rook\rook.sqlite3"
+```
+
+```sql
+INSERT OR REPLACE INTO app_meta (key, value) VALUES ('week_start_day', 'monday');
+```
+
+To switch back to Sunday-start:
+
+```sql
+INSERT OR REPLACE INTO app_meta (key, value) VALUES ('week_start_day', 'sunday');
 ```
 
 ## License
