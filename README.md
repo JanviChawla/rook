@@ -11,7 +11,7 @@ rook ♖  Today — Friday, July 24, 2026
   > Read Chapter 3
   × Submit the expense report
 
-[n] new   [e] edit   [x] complete   [>] migrate   [d] delete   [u] undo   [a] archive   [q] quit
+[n] new   [e/Ent] edit   [x] complete   [>] migrate   [d] delete   [u] undo   [a] archive   [q] quit
 ```
 
 Rook is inspired by the simplicity of a paper bullet journal:
@@ -47,7 +47,7 @@ pipx upgrade rook
 | Key | Action |
 |-----|--------|
 | `n` | New task |
-| `e` or `Enter` | Edit selected task |
+| `e` or `Ent` | Edit selected task |
 | `x` | Toggle complete |
 | `>` | Toggle migrated |
 | `d` | Soft-delete / permanently remove (press twice) |
@@ -74,36 +74,6 @@ rook --data-path
 ```
 
 Uninstalling Rook does not delete the database.
-
-## Development setup
-
-Requires Python 3.10 or newer.
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-```
-
-Run the test suite:
-
-```powershell
-python -m pytest
-```
-
-Run formatting, lint, and type checks:
-
-```powershell
-python -m ruff format --check .
-python -m ruff check .
-python -m mypy src
-```
-
-Run the application during development:
-
-```powershell
-python -m rook
-```
 
 ## FAQ
 
