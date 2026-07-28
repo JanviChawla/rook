@@ -25,12 +25,11 @@ SAFE = SymbolSet(open="*", completed="x", migrated=">", selected=">", deleted_fa
 def state_symbol(state: TaskState, symbols: SymbolSet, *, safe_mode: bool) -> str:
     """The glyph shown in the state-symbol column for a given Task state.
 
-    A Deleted Task's preferred display retains its normal open bullet and
-    relies on strikethrough styling to signal deletion (Section 11.5); the
-    fallback instead replaces the symbol outright with ``deleted_fallback``.
+    A Deleted Task always shows the ``deleted_fallback`` symbol (``~``);
+    in preferred mode the text is also struck through (Section 11.5, 11.7).
     """
     if state is TaskState.DELETED:
-        return symbols.deleted_fallback if safe_mode else symbols.open
+        return symbols.deleted_fallback
     if state is TaskState.OPEN:
         return symbols.open
     if state is TaskState.MIGRATED:

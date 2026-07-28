@@ -4,6 +4,7 @@ from datetime import date
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.timer import Timer
 from textual.widgets import Static
 
 from rook import branding
@@ -115,6 +116,7 @@ class RookApp(App[None]):
         # phase can share the same single undo slot (Section 6.10).
         self._undo_manager = UndoManager()
         self._safe_symbols = safe_symbols
+        self._status_clear_timer: Timer | None = None
         # Map foreground/background to the terminal's own ANSI defaults
         # instead of Textual's fixed truecolor theme, so the app respects
         # the user's existing terminal background (Section 11.9-11.10).
@@ -202,10 +204,20 @@ class RookApp(App[None]):
 
     def on_task_list_view_status_message(self, message: TaskListView.StatusMessage) -> None:
         self.query_one("#status", Static).update(message.text)
+        if self._status_clear_timer is not None:
+            self._status_clear_timer.stop()
+        self._status_clear_timer = self.set_timer(4, self._clear_status)
+
+    def _clear_status(self) -> None:
+        self.query_one("#status", Static).update("")
+        self._status_clear_timer = None
 
     async def on_task_list_view_editing_changed(self, message: TaskListView.EditingChanged) -> None:
         self.query_one(ShortcutFooter).set_editing(message.editing)
         self.query_one("#status", Static).update("")
+        if self._status_clear_timer is not None:
+            self._status_clear_timer.stop()
+            self._status_clear_timer = None
         if not message.editing and self._rollover_pending:
             self._rollover_pending = False
             await self._apply_rollover_if_needed()

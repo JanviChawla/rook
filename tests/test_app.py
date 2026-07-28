@@ -135,7 +135,7 @@ def test_mixed_state_tasks_render_expected_symbols(tmp_path) -> None:
             assert "• Open task" in rendered
             assert "> Migrated task" in rendered
             assert "× Completed task" in rendered
-            assert "• Deleted task" in rendered
+            assert "~ Deleted task" in rendered
 
     asyncio.run(scenario())
 

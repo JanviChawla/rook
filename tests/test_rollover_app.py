@@ -67,7 +67,7 @@ def test_background_check_applies_rollover_and_refreshes_today(tmp_path) -> None
             await app._check_for_new_day()
 
             assert [task.id for task in task_list._tasks] == [open_id]
-            assert task_list._tasks[0].state == TaskState.MIGRATED
+            assert task_list._tasks[0].state == TaskState.OPEN
 
             header = app.query_one("#header", Static)
             assert format_header_date(_DAY2) in str(header.content)

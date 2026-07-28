@@ -54,6 +54,7 @@ class RolloverService:
             return RolloverResult(changed=False)
 
         timestamp = self._now_provider().isoformat()
+        today_iso = today.isoformat()
         with self._connection:
             self._connection.execute(
                 """
@@ -63,7 +64,21 @@ class RolloverService:
                   AND state IN ('completed', 'deleted')
                   AND state_date < ?
                 """,
-                (timestamp, today.isoformat()),
+                (timestamp, today_iso),
+            )
+
+            # Tasks marked Migrated on a previous day carry forward as Open
+            # tasks today — the migration was an intent recorded yesterday,
+            # and the new day is when that intent becomes an active task again.
+            self._connection.execute(
+                """
+                UPDATE tasks
+                SET state = 'open', state_date = ?, state_changed_at = ?, updated_at = ?
+                WHERE archived_date IS NULL
+                  AND state = 'migrated'
+                  AND state_date < ?
+                """,
+                (today_iso, timestamp, timestamp, today_iso),
             )
 
             # Section 15.12 step 3: renumber remaining active Tasks so
@@ -88,7 +103,7 @@ class RolloverService:
                 INSERT INTO app_meta (key, value) VALUES ('last_processed_date', ?)
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value
                 """,
-                (today.isoformat(),),
+                (today_iso,),
             )
 
         return RolloverResult(changed=True)

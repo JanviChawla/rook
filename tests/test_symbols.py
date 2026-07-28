@@ -10,7 +10,7 @@ from rook.symbols import PREFERRED, SAFE, state_symbol
         (TaskState.OPEN, "•"),
         (TaskState.MIGRATED, ">"),
         (TaskState.COMPLETED, "×"),
-        (TaskState.DELETED, "•"),
+        (TaskState.DELETED, "~"),
     ],
 )
 def test_preferred_symbols(state: TaskState, expected: str) -> None:

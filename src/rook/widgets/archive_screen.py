@@ -51,6 +51,14 @@ class ArchiveScreen(Screen[None]):
 
     ArchiveScreen #archive-scroll {
         height: 1fr;
+        scrollbar-size-vertical: 1;
+        scrollbar-color: ansi_default;
+        scrollbar-color-hover: ansi_default;
+        scrollbar-color-active: ansi_default;
+        scrollbar-background: ansi_default;
+        scrollbar-background-hover: ansi_default;
+        scrollbar-background-active: ansi_default;
+        scrollbar-corner-color: ansi_default;
     }
 
     ArchiveScreen #archive-footer {
@@ -114,7 +122,7 @@ class ArchiveScreen(Screen[None]):
         for i, (day, tasks) in enumerate(days):
             if i > 0:
                 lines.append("")
-            lines.append(f"{day:%A, %B} {day.day}")
+            lines.append(f"[bold]{day:%A, %B} {day.day}[/bold]")
             for task in tasks:
                 safe_text = escape(task.text)
                 if task.state == TaskState.COMPLETED:

@@ -81,8 +81,10 @@ def test_open_and_migrated_carry_forward_completed_and_deleted_archive(tmp_path)
     assert result.changed is True
     remaining = tasks.list_active_tasks()
     assert [task.id for task in remaining] == [open_task.id, migrated_task.id]
+    # Both carry forward as Open — the migration intent from day1 is resolved
+    # into a fresh active task on day2.
     assert remaining[0].state == TaskState.OPEN
-    assert remaining[1].state == TaskState.MIGRATED
+    assert remaining[1].state == TaskState.OPEN
 
 
 def test_relative_order_of_unresolved_tasks_is_preserved(tmp_path) -> None:

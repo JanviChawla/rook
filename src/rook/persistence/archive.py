@@ -38,9 +38,9 @@ class ArchiveRepository:
     ) -> list[tuple[date, list[ArchivedTask]]]:
         """Archived tasks in [week_start, week_end_exclusive), grouped by day.
 
-        Days are returned oldest-first. Tasks within each day follow their
-        original archive_order. Only completed and deleted tasks appear
-        (the schema constraint ensures no open/migrated tasks are archived).
+        Days are returned oldest-first. Tasks within each day are sorted
+        alphabetically (case-insensitive). Only completed and deleted tasks
+        appear (the schema constraint ensures no open/migrated tasks are archived).
         """
         rows = self._connection.execute(
             """
@@ -49,7 +49,7 @@ class ArchiveRepository:
             WHERE archived_date IS NOT NULL
               AND archived_date >= ?
               AND archived_date < ?
-            ORDER BY archived_date ASC, archive_order ASC
+            ORDER BY archived_date ASC, lower(text) ASC, text ASC
             """,
             (week_start.isoformat(), week_end_exclusive.isoformat()),
         ).fetchall()

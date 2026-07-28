@@ -16,9 +16,8 @@ def render_task_row_text(task: Task, *, selected: bool, width: int, safe_symbols
 
     Continuation lines of a wrapped Task align under the text rather than
     repeating the selection or state-symbol columns (Section 11.3). A
-    Deleted Task keeps its normal bullet with strikethrough styling in the
-    preferred mode, or the ``~`` fallback symbol with muted styling when
-    ``safe_symbols`` is set (Section 11.5, 11.7). The selection column
+    Deleted Task always shows the ``~`` symbol; in preferred mode the text
+    is also struck through (Section 11.5, 11.7). The selection column
     shows the accent-styled cursor only on the selected row (Section 11.6).
     """
     symbols = SAFE if safe_symbols else PREFERRED

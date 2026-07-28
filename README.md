@@ -50,12 +50,14 @@ uv tool upgrade rook-cli
 | `e` or `Ent` | Edit selected task |
 | `x` | Toggle complete |
 | `>` | Toggle migrated |
-| `d` | Soft-delete / permanently remove (press twice) |
+| `d` | Soft-delete (shows `~` and strikethrough) / permanently remove (press twice) |
 | `u` | Undo last action |
 | `a` | Open weekly archive |
 | `↑` / `↓` | Move selection |
 | `Esc` | Cancel edit |
 | `q` | Quit |
+
+> **Mac note:** strikethrough on soft-deleted tasks requires a terminal that supports it. macOS Terminal.app does not; [iTerm2](https://iterm2.com), Alacritty, and kitty do. The `~` bullet still appears regardless of terminal.
 
 ## Data and privacy
 
