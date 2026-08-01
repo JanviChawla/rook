@@ -1,13 +1,17 @@
+import asyncio
+import json
 import sqlite3
+import urllib.request
 from collections.abc import Callable
 from datetime import date
+from typing import Any
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.timer import Timer
 from textual.widgets import Static
 
-from rook import branding
+from rook import __version__, branding
 from rook.formatting import format_header_date
 from rook.persistence.metadata import MetadataRepository
 from rook.services.rollover import RolloverService
@@ -18,6 +22,13 @@ from rook.widgets.shortcut_footer import ShortcutFooter
 from rook.widgets.task_list import TaskListView
 
 TodayProvider = Callable[[], date]
+
+
+def _parse_version(v: str) -> tuple[int, ...]:
+    try:
+        return tuple(int(x) for x in v.split("."))
+    except ValueError:
+        return (0,)
 
 # Section 21.13 explicitly excludes anything more frequent than needed; a
 # once-a-minute check is enough to notice a live midnight crossing without
@@ -149,6 +160,26 @@ class RookApp(App[None]):
 
     def on_mount(self) -> None:
         self.set_interval(ROLLOVER_CHECK_INTERVAL_SECONDS, self._check_for_new_day)
+        asyncio.create_task(self._check_for_update())
+
+    async def _check_for_update(self) -> None:
+        def _fetch() -> Any:
+            with urllib.request.urlopen(
+                "https://pypi.org/pypi/rook-cli/json", timeout=5
+            ) as response:
+                return json.loads(response.read())
+
+        try:
+            data: Any = await asyncio.to_thread(_fetch)
+            latest: str = data["info"]["version"]
+            if _parse_version(latest) > _parse_version(__version__):
+                self.notify(
+                    "Run: uv tool upgrade rook-cli",
+                    title=f"rook-cli {latest} available",
+                    timeout=10,
+                )
+        except Exception:
+            pass
 
     async def _check_for_new_day(self) -> None:
         if self.query_one(TaskListView).is_editing:

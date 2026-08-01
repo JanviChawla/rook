@@ -42,6 +42,16 @@ To upgrade later:
 uv tool upgrade rook-cli
 ```
 
+## CLI reference
+
+| Flag | Description |
+|------|-------------|
+| `rook` | Launch the app |
+| `rook --version` | Print the installed version and exit |
+| `rook --data-path` | Print the path to the database file and exit |
+| `rook --week-start monday\|sunday` | Set which day the archive week starts on |
+| `rook --reset` | Delete all data and start fresh (asks for confirmation) |
+
 ## Keyboard reference
 
 | Key | Action |
