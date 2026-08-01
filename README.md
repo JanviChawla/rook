@@ -3,7 +3,7 @@
 A local, keyboard-first terminal journal for working through one day at a time.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="Rook terminal screenshot" width="600">
+  <img src="assets/screenshot.png" alt="Rook terminal screenshot">
 </p>
 
 Rook is inspired by the simplicity of a paper bullet journal:
