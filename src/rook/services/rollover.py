@@ -89,7 +89,7 @@ class RolloverService:
                     """
                     SELECT id FROM tasks
                     WHERE archived_date IS NULL
-                    ORDER BY sort_order ASC, id ASC
+                    ORDER BY lower(text) ASC, text ASC
                     """
                 ).fetchall()
             ]

@@ -80,14 +80,15 @@ def test_open_and_migrated_carry_forward_completed_and_deleted_archive(tmp_path)
 
     assert result.changed is True
     remaining = tasks.list_active_tasks()
-    assert [task.id for task in remaining] == [open_task.id, migrated_task.id]
+    # Task text "Migrated" sorts before "Open" alphabetically (M < O).
+    assert [task.id for task in remaining] == [migrated_task.id, open_task.id]
     # Both carry forward as Open — the migration intent from day1 is resolved
     # into a fresh active task on day2.
     assert remaining[0].state == TaskState.OPEN
     assert remaining[1].state == TaskState.OPEN
 
 
-def test_relative_order_of_unresolved_tasks_is_preserved(tmp_path) -> None:
+def test_unresolved_tasks_sorted_alphabetically_after_rollover(tmp_path) -> None:
     connection, tasks, metadata = _setup(tmp_path / "test.sqlite3")
     day1 = date(2026, 7, 23)
     metadata.set_last_processed_date(day1)
@@ -103,7 +104,34 @@ def test_relative_order_of_unresolved_tasks_is_preserved(tmp_path) -> None:
     _rollover(connection, metadata, today=day2).roll_forward_if_needed()
 
     remaining = tasks.list_active_tasks()
-    assert [task.id for task in remaining] == [first.id, second.id, migrated.id]
+    # Alphabetically: "First open" < "Migrated" < "Second open"
+    assert [task.id for task in remaining] == [first.id, migrated.id, second.id]
+
+
+def test_cross_day_tasks_sorted_alphabetically_after_rollover(tmp_path) -> None:
+    """Tasks from multiple days must sort together alphabetically, not in
+    per-day groups (issue #6)."""
+    connection, tasks, metadata = _setup(tmp_path / "test.sqlite3")
+    day1 = date(2026, 7, 22)
+    metadata.set_last_processed_date(day1)
+
+    # Day 1: tasks already in alpha order within their day.
+    apple = tasks.create_task("Apple", now=_NOW, local_date=day1)
+    zebra = tasks.create_task("Zebra", now=_NOW, local_date=day1)
+
+    day2 = date(2026, 7, 23)
+    _rollover(connection, metadata, today=day2).roll_forward_if_needed()
+
+    # Day 2: add a task that falls alphabetically between the day-1 tasks.
+    mango = tasks.create_task("Mango", now=_NOW, local_date=day2)
+
+    day3 = date(2026, 7, 24)
+    _rollover(connection, metadata, today=day3).roll_forward_if_needed()
+
+    remaining = tasks.list_active_tasks()
+    # Cross-day alpha sort: Apple < Mango < Zebra.
+    # A per-day sort would produce [Apple, Zebra, Mango] (day-1 group first).
+    assert [task.id for task in remaining] == [apple.id, mango.id, zebra.id]
 
 
 def test_archive_order_is_stable_after_rollover(tmp_path) -> None:
