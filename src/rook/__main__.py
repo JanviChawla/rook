@@ -19,6 +19,24 @@ def main() -> int:
         if sys.argv[1] == "--data-path":
             print(default_database_path())
             return 0
+        if sys.argv[1] == "--reset":
+            db_path = default_database_path()
+            if not db_path.exists():
+                print(f"No data found at {db_path}.")
+                return 0
+            print(f"This will permanently delete all your Rook data:")
+            print(f"  {db_path}")
+            print()
+            try:
+                answer = input("Type 'yes' to confirm, or anything else to cancel: ")
+            except EOFError:
+                answer = ""
+            if answer.strip().lower() != "yes":
+                print("Cancelled.")
+                return 0
+            db_path.unlink()
+            print("Data deleted. Rook will start fresh next time.")
+            return 0
         if sys.argv[1] == "--week-start":
             value = sys.argv[2].lower() if len(sys.argv) > 2 else ""
             if value not in ("sunday", "monday"):
