@@ -2,17 +2,9 @@
 
 A local, keyboard-first terminal journal for working through one day at a time.
 
-```text
-rook ♖  Today — Friday, July 24, 2026
-⋆⁺₊ (｡'▽'｡)♡ ₊⁺⋆  "Showing up is the whole trick."
-
-❯ • Finish the presentation
-  • Reply to Alex
-  > Read Chapter 3
-  × Submit the expense report
-
-[n] new   [e/Ent] edit   [x] complete   [>] migrate   [d] delete   [u] undo   [a] archive   [q] quit
-```
+<p align="center">
+  <img src="assets/screenshot.png" alt="Rook terminal screenshot" width="600">
+</p>
 
 Rook is inspired by the simplicity of a paper bullet journal:
 
@@ -21,6 +13,7 @@ Rook is inspired by the simplicity of a paper bullet journal:
 - local SQLite storage
 - read-only history
 - no accounts, cloud sync, reminders, priorities, or telemetry
+- at midnight, completed tasks archive, migrated tasks carry over, and the list re-sorts alphabetically
 
 ## Installation
 
@@ -36,21 +29,17 @@ Then launch:
 rook
 ```
 
+To check your installed version:
+
+```powershell
+rook --version
+```
+
 To upgrade later:
 
 ```powershell
 uv tool upgrade rook-cli
 ```
-
-## CLI reference
-
-| Flag | Description |
-|------|-------------|
-| `rook` | Launch the app |
-| `rook --version` | Print the installed version and exit |
-| `rook --data-path` | Print the path to the database file and exit |
-| `rook --week-start monday\|sunday` | Set which day the archive week starts on |
-| `rook --reset` | Delete all data and start fresh (asks for confirmation) |
 
 ## Keyboard reference
 
@@ -59,7 +48,7 @@ uv tool upgrade rook-cli
 | `n` | New task |
 | `e` or `Ent` | Edit selected task |
 | `x` | Toggle complete |
-| `>` | Toggle migrated |
+| `>` | Toggle migrated — carries the task forward to tomorrow |
 | `d` | Soft-delete (shows `~` and strikethrough) / permanently remove (press twice) |
 | `u` | Undo last action |
 | `a` | Open weekly archive |
@@ -85,7 +74,11 @@ To print the exact path on your system:
 rook --data-path
 ```
 
-Uninstalling Rook does not delete the database.
+Uninstalling Rook does not delete the database. To wipe all data and start fresh:
+
+```powershell
+rook --reset
+```
 
 ## FAQ
 
